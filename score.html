@@ -112,7 +112,7 @@ function currentMatch() {
   return matchesForDayCourt().find((m) => m.time === state.time);
 }
 
-let liveScore = { score1: 0, score2: 0, innings1: 3, innings2: 3, status: "pending" };
+let liveScore = { score1: 0, score2: 0, status: "pending" };
 let freeNames = { team1: "", team2: "" };
 let currentMatchId = null;
 let currentIsGroup = true;
@@ -135,7 +135,7 @@ function renderMatchArea() {
 
   db.ref(`${SCORES_PATH}/${m.id}`).once("value").then((snap) => {
     const existing = snap.val();
-    liveScore = existing || { score1: 0, score2: 0, innings1: 3, innings2: 3, status: "pending" };
+    liveScore = existing || { score1: 0, score2: 0, status: "pending" };
     if (!isGroup) {
       freeNames.team1 = (existing && existing.team1Name) || "";
       freeNames.team2 = (existing && existing.team2Name) || "";
@@ -179,16 +179,12 @@ function paintMatchCard(m, isGroup) {
           <button onclick="bumpScore(2,1)">＋</button>
         </div>
       </div>
-      <div class="innings-row">
-        진행 이닝 &nbsp;팀1 <input type="number" id="innings1" value="${liveScore.innings1}" min="1" max="3" oninput="onInningsChange()" />
-        &nbsp;팀2 <input type="number" id="innings2" value="${liveScore.innings2}" min="1" max="3" oninput="onInningsChange()" />
-      </div>
       <div class="status-row">
         <button id="btnPending" class="${liveScore.status === "pending" ? "active" : ""}" onclick="setStatus('pending')">경기전</button>
         <button id="btnProgress" class="${liveScore.status === "progress" ? "active" : ""}" onclick="setStatus('progress')">진행중</button>
         <button id="btnFinal" class="${liveScore.status === "final" ? "active" : ""}" onclick="setStatus('final')">경기 종료</button>
       </div>
-      <p style="font-size:12px; color:#8a8f85; text-align:center; margin-top:4px;">점수·이닝은 바로 반영됩니다. 경기 종료만 확인이 필요해요.</p>
+      <p style="font-size:12px; color:#8a8f85; text-align:center; margin-top:4px;">점수는 바로 반영됩니다. 경기 종료만 확인이 필요해요.</p>
     </div>
   `;
 }
@@ -197,12 +193,6 @@ function bumpScore(which, delta) {
   const key = "score" + which;
   liveScore[key] = Math.max(0, (liveScore[key] || 0) + delta);
   document.getElementById(key).textContent = liveScore[key];
-  pushScore();
-}
-
-function onInningsChange() {
-  liveScore.innings1 = Number(document.getElementById("innings1").value) || 3;
-  liveScore.innings2 = Number(document.getElementById("innings2").value) || 3;
   pushScore();
 }
 

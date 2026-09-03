@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>티볼 도대회 · 운영본부 순위 확정</title>
+<link rel="icon" href="shared/favicon.ico" />
+<link rel="apple-touch-icon" href="shared/apple-touch-icon.png" />
+<link rel="stylesheet" href="shared/style.css" />
+<style>
+  :root { --accent: #1c211d; }
+  .site-header h1 { font-size: 20px; }
+  .admin-wrap { max-width: 560px; margin: 0 auto; padding: 16px; }
+  .rank-card {
+    background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px; margin: 14px 0;
+  }
+  .rank-card .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .rank-card .card-head h3 { font-family: var(--font-display); font-weight: 400; font-size: 17px; margin: 0; }
+  .rank-card .type-tag { font-size: 11px; color: #8a8f85; }
+  .rank-row {
+    display: flex; align-items: center; gap: 10px; padding: 8px 4px;
+    border-bottom: 1px solid var(--line);
+  }
+  .rank-row:last-child { border-bottom: none; }
+  .rank-row .pos { font-weight: 800; font-size: 15px; width: 20px; text-align: center; }
+  .rank-row .info { flex: 1; }
+  .rank-row .info .n { font-weight: 700; font-size: 14px; }
+  .rank-row .info .s { font-size: 11px; color: #8a8f85; }
+  .rank-row .moves { display: flex; gap: 4px; }
+  .rank-row .moves button {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--paper-dim); font-size: 14px; font-weight: 800;
+  }
+  .rank-row .moves button:disabled { opacity: 0.3; }
+  .status-line { font-size: 12px; margin: 8px 0; font-weight: 700; }
+  .status-line.auto { color: #8a8f85; }
+  .status-line.warn { color: #b5502a; }
+  .status-line.confirmed { color: #2e7d46; }
+  .card-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .card-actions button { flex: 1; padding: 11px; border-radius: 10px; border: none; font-weight: 700; font-size: 13px; }
+  .card-actions .btn-save { background: var(--ink); color: var(--paper); }
+  .card-actions .btn-reset { background: var(--paper-dim); color: var(--ink); border: 1px solid var(--line); }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <p class="eyebrow">2026 경기학교스포츠클럽축제 · 티볼</p>
+  <h1>운영본부 · 순위 확정</h1>
+  <div class="gender-toggle" id="levelToggle"></div>
+  <div class="gender-toggle" id="genderToggle" style="margin-top:8px;"></div>
+</header>
+
+<div class="admin-wrap">
+  <p style="font-size:13px; color:#565b53;">승점이 같아 자동으로 순위가 갈리지 않는 조는 <b>▲▼</b>로 순서를 정한 뒤 "확정 저장"을 눌러주세요. 저장하면 관람용 사이트에 바로 반영됩니다.</p>
+  <div id="groupsWrap"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="shared/firebase-config.js"></script>
+
+<script src="shared/teams-elementary.js"></script>
+<script src="shared/teams-middle.js"></script>
+<script src="shared/schedule.js"></script>
+<script src="shared/standings.js"></script>
+
+<script>
+const LEVELS = [
+  { key: "elementary", label: "초등부", teamsData: TEAMS_ELEMENTARY },
+  { key: "middle", label: "중등부", teamsData: TEAMS_MIDDLE },
+];
+const GENDER_LABEL = { m: "남자부", f: "여자부" };
+
+const state = { level: "elementary", gender: "m" };
+let scoresByMatchId = {};
+let rankOverrides = {}; // rankOverrides[gender][groupId]
+let localOrder = {}; // localOrder[groupId] = [teamId, ...] (편집중인 순서, 저장 전)
+
+function currentLevelConfig() {
+  return LEVELS.find((l) => l.key === state.level);
+}
+function currentTeamsData() {
+  return currentLevelConfig().teamsData[state.gender === "m" ? "male" : "female"];
+}
+function levelHasGender(levelKey, gender) {
+  return SCHEDULE.some((x) => x.level === levelKey && x.gender === gender);
+}
+
+function renderLevelToggle() {
+  const el = document.getElementById("levelToggle");
+  el.innerHTML = "";
+  LEVELS.forEach((l) => {
+    const b = document.createElement("button");
+    b.textContent = l.label;
+    b.className = l.key === state.level ? "active" : "";
+    b.onclick = () => {
+      state.level = l.key;
+      if (!levelHasGender(state.level, state.gender)) {
+        state.gender = state.gender === "m" ? "f" : "m";
+      }
+      subscribeOverrides();
+      renderAll();
+    };
+    el.appendChild(b);
+  });
+}
+
+function renderGenderToggle() {
+  const el = document.getElementById("genderToggle");
+  el.innerHTML = "";
+  ["m", "f"].forEach((g) => {
+    if (!levelHasGender(state.level, g)) return;
+    const b = document.createElement("button");
+    b.textContent = GENDER_LABEL[g];
+    b.className = g === state.gender ? "active" : "";
+    b.onclick = () => { state.gender = g; renderAll(); };
+    el.appendChild(b);
+  });
+}
+
+function matchesForCurrent() {
+  return SCHEDULE.filter((m) => m.level === state.level && m.gender === state.gender);
+}
+
+function subscribeOverrides() {
+  if (typeof db === "undefined") return;
+  db.ref(`tiball/rankOverrides/${state.level}`).off();
+  db.ref(`tiball/rankOverrides/${state.level}`).on("value", (snap) => {
+    rankOverrides = snap.val() || {};
+    localOrder = {}; // 레벨 바뀌면 편집중이던 로컬 순서 초기화
+    renderAll();
+  });
+}
+
+function renderGroups() {
+  const td = currentTeamsData();
+  const genderMatches = matchesForCurrent();
+  const wrap = document.getElementById("groupsWrap");
+  wrap.innerHTML = "";
+
+  Object.keys(td.groups)
+    .sort((a, b) => Number(a) - Number(b))
+    .forEach((gid) => {
+      const group = td.groups[gid];
+      // 자동계산 결과(override 없이) — 화면에 보여줄 기본 순서/통계용
+      const groupMatches = genderMatches.filter((m) => m.stage === "group" && String(m.groupId) === String(gid));
+      const auto = calcGroupStandings(group, groupMatches, scoresByMatchId, td.teams, null);
+
+      const savedOverride = (rankOverrides[state.gender] || {})[gid];
+      if (!localOrder[gid]) {
+        // 편집 시작 시 기준 순서: 저장된 override가 있으면 그걸, 없으면 자동계산 순서를 사용
+        if (savedOverride && savedOverride.length) {
+          const byId = {};
+          auto.list.forEach((t) => (byId[t.teamId] = t));
+          localOrder[gid] = savedOverride.map((id) => byId[id]).filter(Boolean);
+        } else {
+          localOrder[gid] = auto.list.slice();
+        }
+      }
+
+      const card = document.createElement("div");
+      card.className = "rank-card";
+
+      const isOverrideActive = !!(savedOverride && savedOverride.length);
+      let statusHtml;
+      if (isOverrideActive) {
+        statusHtml = `<div class="status-line confirmed">✓ 운영본부 확정 순위 사용중</div>`;
+      } else if (auto.tied) {
+        statusHtml = `<div class="status-line warn">⚠ 승점 동률 — 순서를 정해 확정해주세요</div>`;
+      } else {
+        statusHtml = `<div class="status-line auto">자동계산 순위 사용중 (동률 없음)</div>`;
+      }
+
+      card.innerHTML = `
+        <div class="card-head">
+          <h3>${gid}조</h3>
+          <span class="type-tag">${group.type === "four" ? "4팀조 · 2경기제" : "3팀조"}</span>
+        </div>
+        ${statusHtml}
+        <div class="rows" id="rows-${gid}"></div>
+        <div class="card-actions">
+          <button class="btn-save" onclick="saveOverride('${gid}')">확정 저장</button>
+          ${isOverrideActive ? `<button class="btn-reset" onclick="resetOverride('${gid}')">자동계산으로 되돌리기</button>` : ""}
+        </div>
+      `;
+      wrap.appendChild(card);
+      renderRows(gid);
+    });
+}
+
+function renderRows(gid) {
+  const rowsEl = document.getElementById(`rows-${gid}`);
+  if (!rowsEl) return;
+  const order = localOrder[gid];
+  rowsEl.innerHTML = "";
+  order.forEach((t, idx) => {
+    const row = document.createElement("div");
+    row.className = "rank-row";
+    row.innerHTML = `
+      <div class="pos">${idx + 1}</div>
+      <div class="info">
+        <div class="n">${t.name}</div>
+        <div class="s">승점 ${t.points} · 득실 ${t.runsFor}:${t.runsAgainst} · ${t.win}승 ${t.draw}무 ${t.loss}패</div>
+      </div>
+      <div class="moves">
+        <button ${idx === 0 ? "disabled" : ""} onclick="moveRow('${gid}',${idx},-1)">▲</button>
+        <button ${idx === order.length - 1 ? "disabled" : ""} onclick="moveRow('${gid}',${idx},1)">▼</button>
+      </div>
+    `;
+    rowsEl.appendChild(row);
+  });
+}
+
+function moveRow(gid, idx, dir) {
+  const order = localOrder[gid];
+  const target = idx + dir;
+  if (target < 0 || target >= order.length) return;
+  [order[idx], order[target]] = [order[target], order[idx]];
+  renderRows(gid);
+}
+
+function saveOverride(gid) {
+  const order = localOrder[gid].map((t) => t.teamId);
+  db.ref(`tiball/rankOverrides/${state.level}/${state.gender}/${gid}`).set(order).then(() => showToast("확정되었습니다"));
+}
+
+function resetOverride(gid) {
+  if (!confirm("이 조를 다시 자동계산 순위로 되돌릴까요?")) return;
+  db.ref(`tiball/rankOverrides/${state.level}/${state.gender}/${gid}`).remove().then(() => {
+    delete localOrder[gid];
+    showToast("자동계산으로 되돌렸습니다");
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1400);
+}
+
+function renderAll() {
+  renderLevelToggle();
+  renderGenderToggle();
+  renderGroups();
+}
+
+if (typeof db !== "undefined") {
+  db.ref(SCORES_PATH).on("value", (snap) => {
+    scoresByMatchId = snap.val() || {};
+    renderGroups();
+  });
+}
+subscribeOverrides();
+renderAll();
+</script>
+</body>
+</html>
