@@ -143,7 +143,7 @@ main { padding: 4px 16px 24px; max-width: 720px; margin: 0 auto; }
 .view.active { display: block; }
 
 /* ---------- Schedule matrix ---------- */
-.schedule-scroll { overflow-x: auto; border-radius: 10px; border: 1px solid var(--line); }
+.schedule-scroll { overflow: auto; max-height: 60vh; border-radius: 10px; border: 1px solid var(--line); }
 
 table.schedule {
   border-collapse: separate;
@@ -171,17 +171,18 @@ table.schedule th {
   font-size: 12px;
 }
 
-/* 헤더 행 고정(세로 스크롤) */
+/* 헤더 행 고정(시간표 박스 자체 스크롤 기준) */
 table.schedule thead th {
   position: sticky;
+  top: 0;
   z-index: 16;
 }
 
-/* 시간 열 고정(가로 스크롤) */
+/* 시간 열 고정(같은 박스의 가로 스크롤 기준) */
 table.schedule td.time { font-weight: 700; background: var(--paper-dim); white-space: nowrap; position: sticky; left: 0; z-index: 14; }
 
 /* 좌상단 모서리(시간 헤더 셀)는 행+열 둘 다 고정 */
-table.schedule thead th:first-child { position: sticky; left: 0; z-index: 17; }
+table.schedule thead th:first-child { position: sticky; top: 0; left: 0; z-index: 17; }
 
 table.schedule td.match { line-height: 1.35; cursor: pointer; }
 table.schedule td.match:active { background: var(--paper-dim); }

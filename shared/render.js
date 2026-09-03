@@ -21,16 +21,9 @@ function updateStickyOffsets() {
   viewTabs.style.top = headerH + "px";
 
   const viewTabsH = viewTabs.offsetHeight;
-  let dayTabsH = 0;
   if (dayTabs) {
     dayTabs.style.top = headerH + viewTabsH + "px";
-    dayTabsH = dayTabs.offsetHeight;
   }
-
-  const theadTop = headerH + viewTabsH + dayTabsH;
-  document.querySelectorAll("table.schedule thead th").forEach((th) => {
-    th.style.top = theadTop + "px";
-  });
 }
 window.addEventListener("resize", updateStickyOffsets);
 
