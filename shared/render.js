@@ -11,6 +11,29 @@
 const COURTS = ["A", "B", "C", "D", "E"];
 const GENDER_LABEL = { m: "남자부", f: "여자부" };
 
+function updateStickyOffsets() {
+  const header = document.querySelector(".site-header");
+  const viewTabs = document.querySelector(".view-tabs");
+  const dayTabs = document.getElementById("dayTabs");
+  if (!header || !viewTabs) return;
+
+  const headerH = header.offsetHeight;
+  viewTabs.style.top = headerH + "px";
+
+  const viewTabsH = viewTabs.offsetHeight;
+  let dayTabsH = 0;
+  if (dayTabs) {
+    dayTabs.style.top = headerH + viewTabsH + "px";
+    dayTabsH = dayTabs.offsetHeight;
+  }
+
+  const theadTop = headerH + viewTabsH + dayTabsH;
+  document.querySelectorAll("table.schedule thead th").forEach((th) => {
+    th.style.top = theadTop + "px";
+  });
+}
+window.addEventListener("resize", updateStickyOffsets);
+
 function initApp(LEVEL_CONFIG) {
   document.documentElement.style.setProperty("--accent", LEVEL_CONFIG.accent);
   document.getElementById("levelTitle").textContent = "2026 경기 티볼 도대회 · " + LEVEL_CONFIG.label;
@@ -201,6 +224,7 @@ function initApp(LEVEL_CONFIG) {
     if (state.view === "schedule") renderSchedule();
     if (state.view === "standings") renderStandings();
     if (state.view === "bracket") renderBracket();
+    requestAnimationFrame(updateStickyOffsets);
   }
 
   renderAll();

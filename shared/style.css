@@ -90,7 +90,6 @@ a { color: inherit; }
   background: var(--paper);
   border-bottom: 2px dashed var(--line);
   position: sticky;
-  top: 96px;
   z-index: 19;
 }
 
@@ -116,6 +115,9 @@ a { color: inherit; }
   display: flex;
   gap: 8px;
   padding: 14px 16px 4px;
+  position: sticky;
+  z-index: 18;
+  background: var(--paper-dim);
 }
 
 .day-tabs button {
@@ -144,7 +146,8 @@ main { padding: 4px 16px 24px; max-width: 720px; margin: 0 auto; }
 .schedule-scroll { overflow-x: auto; border-radius: 10px; border: 1px solid var(--line); }
 
 table.schedule {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   width: 100%;
   min-width: 620px;
   background: var(--paper);
@@ -168,7 +171,17 @@ table.schedule th {
   font-size: 12px;
 }
 
-table.schedule td.time { font-weight: 700; background: var(--paper-dim); white-space: nowrap; }
+/* 헤더 행 고정(세로 스크롤) */
+table.schedule thead th {
+  position: sticky;
+  z-index: 16;
+}
+
+/* 시간 열 고정(가로 스크롤) */
+table.schedule td.time { font-weight: 700; background: var(--paper-dim); white-space: nowrap; position: sticky; left: 0; z-index: 14; }
+
+/* 좌상단 모서리(시간 헤더 셀)는 행+열 둘 다 고정 */
+table.schedule thead th:first-child { position: sticky; left: 0; z-index: 17; }
 
 table.schedule td.match { line-height: 1.35; cursor: pointer; }
 table.schedule td.match:active { background: var(--paper-dim); }

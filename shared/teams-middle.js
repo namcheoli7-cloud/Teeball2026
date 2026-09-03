@@ -7,14 +7,14 @@ const TEAMS_MIDDLE = {
     label: "남자중등부",
     teams: [
       { id: 1, name: "동구중", region: "구리남양주" },
-      { id: 2, name: "이천사동중", region: "이천" },
+      { id: 2, name: "사동중", region: "이천" },
       { id: 3, name: "매양중", region: "광주하남" },
       { id: 4, name: "신원중", region: "고양" },
       { id: 5, name: "예당중", region: "화성오산" },
       { id: 6, name: "매탄중", region: "수원" },
       { id: 7, name: "야탑중", region: "성남" },
-      { id: 8, name: "배곧해솔중", region: "시흥" },
-      { id: 9, name: "의왕부곡중", region: "군포의왕" },
+      { id: 8, name: "해솔중", region: "시흥" },
+      { id: 9, name: "부곡중", region: "군포의왕" },
       { id: 10, name: "원곡중", region: "안산" },
       { id: 11, name: "심학중", region: "파주" },
       { id: 12, name: "어정중", region: "용인" },
@@ -36,7 +36,7 @@ const TEAMS_MIDDLE = {
   female: {
     label: "여자중등부",
     teams: [
-      { id: 1, name: "이천사동중", region: "이천" },
+      { id: 1, name: "사동중", region: "이천" },
       { id: 2, name: "안양중", region: "안양과천" },
       { id: 3, name: "정왕중", region: "시흥" },
       { id: 4, name: "수현중", region: "화성오산" },
