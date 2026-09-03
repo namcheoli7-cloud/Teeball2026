@@ -21,11 +21,11 @@ const SCHEDULE = [
 
   // --- B구장 ---
   { id: "1-B-0900", day: 1, court: "B", time: "09:00", level: "elementary", gender: "m", stage: "group", groupId: 2, team1: 4, team2: 5 },
-  { id: "1-B-1000", day: 1, court: "B", time: "10:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 19, team2: 20, note: "풀" },
+  { id: "1-B-1000", day: 1, court: "B", time: "10:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 19, team2: 20 },
   { id: "1-B-1100", day: 1, court: "B", time: "11:00", level: "elementary", gender: "m", stage: "group", groupId: 2, team1: 5, team2: 6 },
-  { id: "1-B-1200", day: 1, court: "B", time: "12:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 21, team2: 22, note: "풀" },
+  { id: "1-B-1200", day: 1, court: "B", time: "12:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 21, team2: 22 },
   { id: "1-B-1300", day: 1, court: "B", time: "13:00", level: "elementary", gender: "m", stage: "group", groupId: 2, team1: 6, team2: 4 },
-  { id: "1-B-1400", day: 1, court: "B", time: "14:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 20, team2: 21, note: "풀" },
+  { id: "1-B-1400", day: 1, court: "B", time: "14:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 20, team2: 21 },
   { id: "1-B-1500", day: 1, court: "B", time: "15:00", level: "elementary", gender: "m", stage: "final2", stageLabel: "결선 2경기", slotLabel: "3조1위 : 4조1위" },
   { id: "1-B-1600", day: 1, court: "B", time: "16:00", level: "elementary", gender: "m", stage: "semi2", stageLabel: "4강 2경기", slotLabel: "결선3경기 승 : 7조1위" },
 
@@ -35,7 +35,7 @@ const SCHEDULE = [
   { id: "1-C-1100", day: 1, court: "C", time: "11:00", level: "elementary", gender: "m", stage: "group", groupId: 3, team1: 8, team2: 9 },
   { id: "1-C-1200", day: 1, court: "C", time: "12:00", level: "middle", gender: "f", stage: "group", groupId: 1, team1: 2, team2: 3 },
   { id: "1-C-1300", day: 1, court: "C", time: "13:00", level: "elementary", gender: "m", stage: "group", groupId: 3, team1: 9, team2: 7 },
-  { id: "1-C-1400", day: 1, court: "C", time: "14:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 22, team2: 19, note: "풀" },
+  { id: "1-C-1400", day: 1, court: "C", time: "14:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 22, team2: 19 },
   { id: "1-C-1500", day: 1, court: "C", time: "15:00", level: "elementary", gender: "m", stage: "final3", stageLabel: "결선 3경기", slotLabel: "5조1위 : 6조1위" },
 
   // --- D구장 ---
@@ -85,7 +85,7 @@ const SCHEDULE = [
   { id: "2-C-0900", day: 2, court: "C", time: "09:00", level: "middle", gender: "m", stage: "group", groupId: 3, team1: 7, team2: 8 },
   { id: "2-C-1100", day: 2, court: "C", time: "11:00", level: "middle", gender: "m", stage: "group", groupId: 3, team1: 8, team2: 9 },
   { id: "2-C-1300", day: 2, court: "C", time: "13:00", level: "middle", gender: "m", stage: "group", groupId: 3, team1: 9, team2: 7 },
-  { id: "2-C-1400", day: 2, court: "C", time: "14:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 13, team2: 10, note: "풀" },
+  { id: "2-C-1400", day: 2, court: "C", time: "14:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 13, team2: 10 },
 
   // --- D구장 ---
   { id: "2-D-0900", day: 2, court: "D", time: "09:00", level: "elementary", gender: "f", stage: "group", groupId: 1, team1: 1, team2: 2 },
@@ -99,11 +99,11 @@ const SCHEDULE = [
 
   // --- E구장 ---
   { id: "2-E-0900", day: 2, court: "E", time: "09:00", level: "elementary", gender: "f", stage: "group", groupId: 2, team1: 4, team2: 5 },
-  { id: "2-E-1000", day: 2, court: "E", time: "10:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 10, team2: 11, note: "풀" },
+  { id: "2-E-1000", day: 2, court: "E", time: "10:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 10, team2: 11 },
   { id: "2-E-1100", day: 2, court: "E", time: "11:00", level: "elementary", gender: "f", stage: "group", groupId: 2, team1: 5, team2: 6 },
-  { id: "2-E-1200", day: 2, court: "E", time: "12:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 12, team2: 13, note: "풀" },
+  { id: "2-E-1200", day: 2, court: "E", time: "12:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 12, team2: 13 },
   { id: "2-E-1300", day: 2, court: "E", time: "13:00", level: "elementary", gender: "f", stage: "group", groupId: 2, team1: 6, team2: 4 },
-  { id: "2-E-1400", day: 2, court: "E", time: "14:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 11, team2: 12, note: "풀" },
+  { id: "2-E-1400", day: 2, court: "E", time: "14:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 11, team2: 12 },
   { id: "2-E-1600", day: 2, court: "E", time: "16:00", level: "elementary", gender: "f", stage: "semi2", stageLabel: "4강 2경기", slotLabel: "3조1위 : 4조1위" },
 ];
 

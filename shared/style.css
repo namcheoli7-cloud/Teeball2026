@@ -149,7 +149,11 @@ table.schedule {
   min-width: 620px;
   background: var(--paper);
   font-size: 13px;
+  table-layout: fixed;
 }
+
+table.schedule col.time-col { width: 58px; }
+table.schedule col.court-col { width: calc((100% - 58px) / 5); }
 
 table.schedule th, table.schedule td {
   border: 1px solid var(--line);

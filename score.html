@@ -110,7 +110,7 @@ function currentMatch() {
   return matchesForDayCourt().find((m) => m.time === state.time);
 }
 
-let liveScore = { score1: 0, score2: 0, innings1: 3, innings2: 3, status: "progress" };
+let liveScore = { score1: 0, score2: 0, innings1: 3, innings2: 3, status: "pending" };
 let freeNames = { team1: "", team2: "" };
 
 function renderMatchArea() {
@@ -130,7 +130,7 @@ function renderMatchArea() {
 
   db.ref(`${SCORES_PATH}/${m.id}`).once("value").then((snap) => {
     const existing = snap.val();
-    liveScore = existing || { score1: 0, score2: 0, innings1: 3, innings2: 3, status: "progress" };
+    liveScore = existing || { score1: 0, score2: 0, innings1: 3, innings2: 3, status: "pending" };
     if (!isGroup && existing) {
       freeNames.team1 = existing.team1Name || "";
       freeNames.team2 = existing.team2Name || "";
@@ -179,6 +179,7 @@ function paintMatchCard(m, isGroup) {
         &nbsp;팀2 <input type="number" id="innings2" value="${liveScore.innings2}" min="1" max="3" />
       </div>
       <div class="status-row">
+        <button id="btnPending" class="${liveScore.status === "pending" ? "active" : ""}" onclick="setStatus('pending')">경기전</button>
         <button id="btnProgress" class="${liveScore.status === "progress" ? "active" : ""}" onclick="setStatus('progress')">진행중</button>
         <button id="btnFinal" class="${liveScore.status === "final" ? "active" : ""}" onclick="setStatus('final')">경기 종료</button>
       </div>
@@ -194,6 +195,7 @@ function bumpScore(which, delta) {
 }
 function setStatus(s) {
   liveScore.status = s;
+  document.getElementById("btnPending").classList.toggle("active", s === "pending");
   document.getElementById("btnProgress").classList.toggle("active", s === "progress");
   document.getElementById("btnFinal").classList.toggle("active", s === "final");
 }

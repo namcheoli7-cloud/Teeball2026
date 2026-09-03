@@ -109,7 +109,9 @@ function initApp(LEVEL_CONFIG) {
       return;
     }
 
-    let html = '<div class="schedule-scroll"><table class="schedule"><thead><tr><th>시간</th>';
+    let html = '<div class="schedule-scroll"><table class="schedule"><colgroup><col class="time-col">';
+    COURTS.forEach(() => (html += '<col class="court-col">'));
+    html += '</colgroup><thead><tr><th>시간</th>';
     COURTS.forEach((c) => (html += `<th>${c}구장</th>`));
     html += "</tr></thead><tbody>";
 
@@ -140,8 +142,8 @@ function initApp(LEVEL_CONFIG) {
     }
     let scoreLine = "";
     const sc = scoresByMatchId[m.id];
-    if (sc && (sc.score1 !== undefined || sc.score2 !== undefined)) {
-      const statusTxt = sc.status === "final" ? "" : " (진행중)";
+    if (sc && sc.status && sc.status !== "pending") {
+      const statusTxt = sc.status === "progress" ? " (진행중)" : "";
       scoreLine = `<span class="match-score">${sc.score1 ?? "-"} : ${sc.score2 ?? "-"}${statusTxt}</span>`;
     }
     const note = m.note ? `<span class="match-note">${m.note}</span>` : "";
@@ -181,12 +183,13 @@ function initApp(LEVEL_CONFIG) {
     const genderMatches = matchesForGender().filter((m) => m.stage !== "group");
     genderMatches.sort((a, b) => (a.day - b.day) || a.time.localeCompare(b.time));
 
-    let html = `<div class="bracket-note">${td.bracketNote || ""}</div>`;
+    let html = "";
     genderMatches.forEach((m) => {
       const sc = scoresByMatchId[m.id];
       let scoreHtml = "";
-      if (sc && sc.status === "final") {
-        scoreHtml = `<span class="score">${sc.score1 ?? "-"} : ${sc.score2 ?? "-"}</span>`;
+      if (sc && sc.status && sc.status !== "pending") {
+        const statusTxt = sc.status === "progress" ? " (진행중)" : "";
+        scoreHtml = `<span class="score">${sc.score1 ?? "-"} : ${sc.score2 ?? "-"}${statusTxt}</span>`;
       }
       html += `<div class="bracket-stage"><span class="stage-label">${m.stageLabel}</span>
         <div class="bracket-card">${m.slotLabel}${scoreHtml}<span class="meta">${m.court}구장 · ${m.time}</span></div></div>`;
