@@ -10,6 +10,7 @@
 
 const COURTS = ["A", "B", "C", "D", "E"];
 const GENDER_LABEL = { m: "남자부", f: "여자부" };
+const GROUP_PASTELS = ["#e5f3e8", "#e4edf8", "#fdf1e1", "#fbe7ed", "#efe4f7", "#e1f5f1", "#f8f1e1", "#e8e8f8"];
 
 function updateStickyOffsets() {
   const header = document.querySelector(".site-header");
@@ -33,6 +34,7 @@ function initApp(LEVEL_CONFIG) {
 
   const state = { gender: "m", view: "schedule", day: null };
   let scoresByMatchId = {};
+  let rankOverrides = {}; // rankOverrides[gender][groupId] = [teamId, ...]
 
   // 첫 로드시: 이 레벨에 성별별로 매치가 있는 요일을 찾아 기본 day 지정
   function defaultDayFor(gender) {
@@ -45,10 +47,14 @@ function initApp(LEVEL_CONFIG) {
     return SCHEDULE.some((x) => x.level === LEVEL_CONFIG.key && x.gender === gender);
   }
 
-  // ---------- Firebase 실시간 스코어 구독 ----------
+  // ---------- Firebase 실시간 스코어 / 운영본부 순위확정 구독 ----------
   if (typeof db !== "undefined") {
     db.ref(SCORES_PATH).on("value", (snap) => {
       scoresByMatchId = snap.val() || {};
+      renderAll();
+    });
+    db.ref(`tiball/rankOverrides/${LEVEL_CONFIG.key}`).on("value", (snap) => {
+      rankOverrides = snap.val() || {};
       renderAll();
     });
   }
@@ -139,7 +145,7 @@ function initApp(LEVEL_CONFIG) {
           html += '<td class="empty"></td>';
           return;
         }
-        html += `<td class="match" data-match="${m.id}">${matchCellHtml(m)}</td>`;
+        html += `<td class="match" data-match="${m.id}"${m.stage === "group" ? ` style="background:${GROUP_PASTELS[(m.groupId - 1) % GROUP_PASTELS.length]}"` : ""}>${matchCellHtml(m)}</td>`;
       });
       html += "</tr>";
     });
@@ -148,16 +154,36 @@ function initApp(LEVEL_CONFIG) {
   }
 
   function matchCellHtml(m) {
-    let stageTag = "";
-    let body = "";
+    const sc = scoresByMatchId[m.id];
+    let side1Text = null,
+      side2Text = null;
     if (m.stage === "group") {
-      body = `${teamName(m.team1)} : ${teamName(m.team2)}`;
+      side1Text = teamName(m.team1);
+      side2Text = teamName(m.team2);
+    } else if (sc && sc.team1Name && sc.team2Name) {
+      side1Text = sc.team1Name;
+      side2Text = sc.team2Name;
+    }
+
+    const stageTag = m.stage !== "group" ? `<span class="match-stage">${m.stageLabel}</span>` : "";
+
+    let win1 = "",
+      win2 = "";
+    if (sc && sc.status === "final") {
+      const s1 = Number(sc.score1) || 0;
+      const s2 = Number(sc.score2) || 0;
+      if (s1 > s2) win1 = " winner";
+      else if (s2 > s1) win2 = " winner";
+    }
+
+    let body;
+    if (side1Text !== null && side2Text !== null) {
+      body = `<span class="match-side${win1}">${side1Text}</span> : <span class="match-side${win2}">${side2Text}</span>`;
     } else {
-      stageTag = `<span class="match-stage">${m.stageLabel}</span>`;
       body = m.slotLabel || "";
     }
+
     let scoreLine = "";
-    const sc = scoresByMatchId[m.id];
     if (sc && sc.status && sc.status !== "pending") {
       const statusTxt = sc.status === "progress" ? " (진행중)" : "";
       scoreLine = `<span class="match-score">${sc.score1 ?? "-"} : ${sc.score2 ?? "-"}${statusTxt}</span>`;
@@ -170,20 +196,28 @@ function initApp(LEVEL_CONFIG) {
   function renderStandings() {
     const td = currentTeamsData();
     const genderMatches = matchesForGender();
-    const all = calcAllStandings(td.groups, genderMatches, scoresByMatchId, td.teams);
+    const overridesForGender = rankOverrides[state.gender] || {};
+    const all = calcAllStandings(td.groups, genderMatches, scoresByMatchId, td.teams, overridesForGender);
 
     let html = "";
     Object.keys(td.groups)
       .sort((a, b) => Number(a) - Number(b))
       .forEach((gid) => {
         const group = td.groups[gid];
-        const rows = all[gid];
+        const { list: rows, tied, isOverride } = all[gid];
         html += `<div class="group-block"><h3>${gid}조</h3>`;
+
         if (group.type === "four") {
-          html += `<div class="group-note">4팀조 · 2경기제 · 동률 시 승점→최소실점→최다득점 순</div>`;
+          html += `<div class="group-note">4팀조 · 2경기제 · 동률 시 최소실점→최다득점 순</div>`;
         } else {
-          html += `<div class="group-note">동률 시 승률계산법[(득점÷이닝)-(실점÷이닝)] 순</div>`;
+          html += `<div class="group-note">승점으로만 순위를 매깁니다</div>`;
         }
+        if (isOverride) {
+          html += `<div class="group-note confirmed">✓ 운영본부가 확정한 순위입니다</div>`;
+        } else if (tied) {
+          html += `<div class="group-note warn">⚠ 승점 동률 — 운영본부 확인 후 순위가 확정됩니다</div>`;
+        }
+
         html += `<table class="standings"><thead><tr><th>순위</th><th style="text-align:left">팀</th><th>승</th><th>무</th><th>패</th><th>득실</th><th>승점</th></tr></thead><tbody>`;
         rows.forEach((r) => {
           html += `<tr class="rank-${r.rank}"><td>${r.rank}</td><td class="name">${r.name}</td><td>${r.win}</td><td>${r.draw}</td><td>${r.loss}</td><td>${r.runsFor}:${r.runsAgainst}</td><td>${r.points}</td></tr>`;
@@ -193,24 +227,158 @@ function initApp(LEVEL_CONFIG) {
     document.getElementById("standingsWrap").innerHTML = html;
   }
 
-  // ---------- 토너먼트 브래킷 ----------
+  // ---------- 토너먼트 브래킷 (다이어그램) ----------
+  const BRACKET_COL_W = 200;
+  const BRACKET_ROW_H = 70;
+  const BRACKET_BOX_W = 172;
+
+  function buildBracketLayout() {
+    const bracketMatches = matchesForGender().filter((m) => m.stage !== "group");
+    const nodes = {};
+    const groupIds = new Set();
+    bracketMatches.forEach((m) => {
+      (m.feedsFrom || []).forEach((f) => {
+        if (f.indexOf("group:") === 0) groupIds.add(Number(f.split(":")[1]));
+      });
+    });
+    const sortedGroups = [...groupIds].sort((a, b) => a - b);
+    sortedGroups.forEach((gid, i) => {
+      nodes["group:" + gid] = { id: "group:" + gid, type: "seed", groupId: gid, col: 0, row: i };
+    });
+
+    const remaining = bracketMatches.slice();
+    let guard = 0;
+    while (remaining.length && guard < 50) {
+      guard++;
+      const idx = remaining.findIndex((m) => (m.feedsFrom || []).every((f) => nodes[f]));
+      if (idx === -1) break;
+      const m = remaining.splice(idx, 1)[0];
+      const feederNodes = (m.feedsFrom || []).map((f) => nodes[f]);
+      const col = feederNodes.length ? 1 + Math.max(...feederNodes.map((n) => n.col)) : 0;
+      const row = feederNodes.length ? feederNodes.reduce((s, n) => s + n.row, 0) / feederNodes.length : 0;
+      nodes[m.stage] = { id: m.stage, type: "match", match: m, col, row };
+    }
+    return nodes;
+  }
+
+  function resolveSeedLabel(gid, standingsAll) {
+    const g = standingsAll[gid];
+    if (!g) return { text: gid + "조 1위", sub: "", done: false };
+    if (g.isOverride || !g.tied) {
+      return { text: g.list[0].name, sub: gid + "조 1위 확정", done: true };
+    }
+    return { text: gid + "조 1위", sub: "예선 진행중", done: false };
+  }
+
+  function resolveMatchWinner(matchId) {
+    const sc = scoresByMatchId[matchId];
+    if (!sc || sc.status !== "final") return null;
+    const n1 = sc.team1Name,
+      n2 = sc.team2Name;
+    if (!n1 && !n2) return null;
+    const s1 = Number(sc.score1) || 0;
+    const s2 = Number(sc.score2) || 0;
+    if (s1 === s2) return null;
+    return s1 > s2 ? n1 : n2;
+  }
+
   function renderBracket() {
     const td = currentTeamsData();
-    const genderMatches = matchesForGender().filter((m) => m.stage !== "group");
-    genderMatches.sort((a, b) => (a.day - b.day) || a.time.localeCompare(b.time));
+    const genderMatches = matchesForGender();
+    const overridesForGender = rankOverrides[state.gender] || {};
+    const standingsAll = calcAllStandings(td.groups, genderMatches, scoresByMatchId, td.teams, overridesForGender);
 
-    let html = "";
-    genderMatches.forEach((m) => {
+    const nodes = buildBracketLayout();
+    const nodeList = Object.values(nodes);
+    if (!nodeList.length) {
+      document.getElementById("bracketWrap").innerHTML = '<div class="empty-state">토너먼트 경기 정보가 없습니다.</div>';
+      return;
+    }
+
+    const maxCol = Math.max(...nodeList.map((n) => n.col));
+    const maxRow = Math.max(...nodeList.map((n) => n.row));
+    const width = (maxCol + 1) * BRACKET_COL_W + 20;
+    const height = (maxRow + 1) * BRACKET_ROW_H + 40;
+
+    function px(n) {
+      return { x: n.col * BRACKET_COL_W + 10, y: n.row * BRACKET_ROW_H + 20 };
+    }
+
+    // 각 노드가 화면에 표시할 라벨/서브라벨/완료여부 계산
+    function nodeDisplay(n) {
+      if (n.type === "seed") return resolveSeedLabel(n.groupId, standingsAll);
+      const m = n.match;
+      const sides = (m.feedsFrom || []).map((f) => {
+        if (f.indexOf("group:") === 0) return resolveSeedLabel(Number(f.split(":")[1]), standingsAll).text;
+        const feederNode = nodes[f];
+        const winner = feederNode ? resolveMatchWinner(feederNode.match.id) : null;
+        return winner || (feederNode ? feederNode.match.stageLabel + " 승" : "");
+      });
       const sc = scoresByMatchId[m.id];
-      let scoreHtml = "";
+      let scoreText = "";
+      let winnerIdx = -1;
       if (sc && sc.status && sc.status !== "pending") {
-        const statusTxt = sc.status === "progress" ? " (진행중)" : "";
-        scoreHtml = `<span class="score">${sc.score1 ?? "-"} : ${sc.score2 ?? "-"}${statusTxt}</span>`;
+        scoreText = `${sc.score1 ?? "-"} : ${sc.score2 ?? "-"}`;
+        if (sc.status === "final") {
+          const s1 = Number(sc.score1) || 0,
+            s2 = Number(sc.score2) || 0;
+          if (s1 > s2) winnerIdx = 0;
+          else if (s2 > s1) winnerIdx = 1;
+        }
       }
-      html += `<div class="bracket-stage"><span class="stage-label">${m.stageLabel}</span>
-        <div class="bracket-card">${m.slotLabel}${scoreHtml}<span class="meta">${m.court}구장 · ${m.time}</span></div></div>`;
+      return { sides, scoreText, winnerIdx, stageLabel: m.stageLabel };
+    }
+
+    // 연결선(SVG) 생성
+    let linesHtml = "";
+    nodeList.forEach((n) => {
+      if (n.type !== "match") return;
+      const to = px(n);
+      const toY = to.y + 20; // 박스 세로 중앙 대략치
+      (n.match.feedsFrom || []).forEach((f) => {
+        const feederNode = nodes[f];
+        if (!feederNode) return;
+        const from = px(feederNode);
+        const fromX = from.x + BRACKET_BOX_W;
+        const fromY = from.y + 20;
+        const toX = to.x;
+        const midX = fromX + (toX - fromX) / 2;
+        linesHtml += `<path d="M ${fromX} ${fromY} H ${midX} V ${toY} H ${toX}" fill="none" stroke="var(--line)" stroke-width="2"/>`;
+      });
     });
-    document.getElementById("bracketWrap").innerHTML = html || '<div class="empty-state">토너먼트 경기 정보가 없습니다.</div>';
+
+    // 노드(박스) HTML 생성
+    let boxesHtml = "";
+    nodeList.forEach((n) => {
+      const pos = px(n);
+      if (n.type === "seed") {
+        const d = nodeDisplay(n);
+        boxesHtml += `<div class="bx-seed ${d.done ? "done" : ""}" style="left:${pos.x}px; top:${pos.y}px; width:${BRACKET_BOX_W}px;">
+          <div class="bx-seed-name">${d.text}</div>
+          <div class="bx-seed-sub">${d.sub}</div>
+        </div>`;
+      } else {
+        const d = nodeDisplay(n);
+        const side0Cls = d.winnerIdx === 0 ? "win" : "";
+        const side1Cls = d.winnerIdx === 1 ? "win" : "";
+        boxesHtml += `<div class="bx-match" style="left:${pos.x}px; top:${pos.y}px; width:${BRACKET_BOX_W}px;">
+          <div class="bx-match-stage">${d.stageLabel}</div>
+          <div class="bx-match-side ${side0Cls}">${d.sides[0] || ""}</div>
+          <div class="bx-match-side ${side1Cls}">${d.sides[1] || ""}</div>
+          ${d.scoreText ? `<div class="bx-match-score">${d.scoreText}</div>` : ""}
+        </div>`;
+      }
+    });
+
+    const html = `
+      <div class="bracket-scroll">
+        <div class="bracket-canvas" style="width:${width}px; height:${height}px;">
+          <svg width="${width}" height="${height}" style="position:absolute; top:0; left:0;">${linesHtml}</svg>
+          ${boxesHtml}
+        </div>
+      </div>
+    `;
+    document.getElementById("bracketWrap").innerHTML = html;
   }
 
   function renderAll() {
@@ -218,6 +386,18 @@ function initApp(LEVEL_CONFIG) {
     if (state.view === "standings") renderStandings();
     if (state.view === "bracket") renderBracket();
     requestAnimationFrame(updateStickyOffsets);
+  }
+
+  // ---------- 구장위치 보기 모달 ----------
+  const venueBtn = document.getElementById("venueBtn");
+  const venueModal = document.getElementById("venueModal");
+  const venueClose = document.getElementById("venueClose");
+  if (venueBtn && venueModal) {
+    venueBtn.onclick = () => venueModal.classList.add("open");
+    if (venueClose) venueClose.onclick = () => venueModal.classList.remove("open");
+    venueModal.onclick = (e) => {
+      if (e.target === venueModal) venueModal.classList.remove("open");
+    };
   }
 
   renderAll();
