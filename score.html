@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
-<title>티볼 도대회 · 스코어 입력</title>
+<title>티볼 도대회 · 심판 도구</title>
 <link rel="icon" href="shared/favicon.ico" />
 <link rel="apple-touch-icon" href="shared/apple-touch-icon.png" />
 <link rel="stylesheet" href="shared/style.css" />
@@ -16,17 +16,31 @@
 
 <header class="site-header">
   <p class="eyebrow">2026 경기학교스포츠클럽축제 · 티볼</p>
-  <h1>구장 스코어 입력</h1>
+  <h1>심판 · 운영 도구</h1>
 </header>
 
-<div class="score-wrap">
-  <p style="font-size:13px; color:#565b53; margin-top:14px;">일자 → 구장 → 경기 시간 순으로 선택하면 해당 경기 스코어를 입력할 수 있습니다.</p>
+<nav class="view-tabs">
+  <button id="modeScoreBtn" class="active" onclick="switchMode('score')">스코어 입력</button>
+  <button id="modeRankBtn" onclick="switchMode('rank')">순위 확정</button>
+</nav>
 
-  <div class="picker-row" id="dayPicker"></div>
-  <div class="picker-row" id="courtPicker"></div>
-  <div class="picker-row" id="timePicker"></div>
+<div id="scoreMode" class="view active">
+  <div class="score-wrap">
+    <p style="font-size:13px; color:#565b53; margin-top:14px;">일자 → 구장 → 경기 시간 순으로 선택하면 해당 경기 스코어를 입력할 수 있습니다.</p>
+    <div class="picker-row" id="dayPicker"></div>
+    <div class="picker-row" id="courtPicker"></div>
+    <div class="picker-row" id="timePicker"></div>
+    <div id="matchArea"></div>
+  </div>
+</div>
 
-  <div id="matchArea"></div>
+<div id="rankMode" class="view">
+  <div class="score-wrap">
+    <p style="font-size:13px; color:#565b53; margin-top:14px;">승점이 같아 자동으로 순위가 갈리지 않는 조는 <b>▲▼</b>로 순서를 정한 뒤 "확정 저장"을 눌러주세요. 저장하면 관람용 사이트에 바로 반영됩니다.</p>
+    <div class="picker-row" id="rankLevelPicker"></div>
+    <div class="picker-row" id="rankGenderPicker"></div>
+    <div id="rankGroupsWrap"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -39,11 +53,16 @@
 <script src="shared/teams-elementary.js"></script>
 <script src="shared/teams-middle.js"></script>
 <script src="shared/schedule.js"></script>
+<script src="shared/standings.js"></script>
 
 <script>
 const LEVEL_LABEL = { elementary: "초등부", middle: "중등부", skip: "여고부(별도)" };
 const GENDER_LABEL = { m: "남자", f: "여자" };
 const COURTS = ["A", "B", "C", "D", "E"];
+const RANK_LEVELS = [
+  { key: "elementary", label: "초등부", teamsData: TEAMS_ELEMENTARY },
+  { key: "middle", label: "중등부", teamsData: TEAMS_MIDDLE },
+];
 
 function teamsDataFor(level, gender) {
   const src = level === "elementary" ? TEAMS_ELEMENTARY : level === "middle" ? TEAMS_MIDDLE : null;
@@ -57,7 +76,81 @@ function teamName(level, gender, id) {
   return t ? t.name : "";
 }
 
-const state = { day: 1, court: "A", time: null };
+// ---------- 전역 실시간 캐시: 전체 스코어 + 운영본부 순위확정 (두 모드가 공유) ----------
+let scoresByMatchId = {};
+let rankOverridesByLevel = { elementary: {}, middle: {} };
+let currentMode = "score";
+
+function isTypingTeamName() {
+  const a = document.activeElement;
+  return a && (a.id === "freeTeam1" || a.id === "freeTeam2");
+}
+function refreshIfSafe() {
+  if (isTypingTeamName()) return;
+  if (currentMode === "score") renderMatchArea();
+  else renderRankGroups();
+}
+
+if (typeof db !== "undefined") {
+  db.ref(SCORES_PATH).on("value", (snap) => {
+    scoresByMatchId = snap.val() || {};
+    refreshIfSafe();
+  });
+  ["elementary", "middle"].forEach((lvl) => {
+    db.ref(`tiball/rankOverrides/${lvl}`).on("value", (snap) => {
+      rankOverridesByLevel[lvl] = snap.val() || {};
+      refreshIfSafe();
+    });
+  });
+}
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById("modeScoreBtn").classList.toggle("active", mode === "score");
+  document.getElementById("modeRankBtn").classList.toggle("active", mode === "rank");
+  document.getElementById("scoreMode").classList.toggle("active", mode === "score");
+  document.getElementById("rankMode").classList.toggle("active", mode === "rank");
+  if (mode === "score") renderMatchArea();
+  else renderRankGroups();
+}
+
+// gid조 1위가 확정됐으면 팀명을, 동률 등으로 아직이면 null 반환
+function resolveGroupWinnerName(level, gender, gid) {
+  const td = teamsDataFor(level, gender);
+  if (!td) return null;
+  const group = td.groups[gid];
+  if (!group) return null;
+  const groupMatches = SCHEDULE.filter((m) => m.level === level && m.gender === gender && m.stage === "group" && String(m.groupId) === String(gid));
+  const overridesForGender = (rankOverridesByLevel[level] || {})[gender] || {};
+  const result = calcGroupStandings(group, groupMatches, scoresByMatchId, td.teams, overridesForGender[gid]);
+  if (result.isOverride || !result.tied) return result.list[0].name;
+  return null;
+}
+// 종료된 경기의 승리팀명 반환 (team1Name/team2Name 저장돼 있어야 함)
+function resolveMatchWinnerName(matchId) {
+  const sc = scoresByMatchId[matchId];
+  if (!sc || sc.status !== "final") return null;
+  const n1 = sc.team1Name,
+    n2 = sc.team2Name;
+  if (!n1 || !n2) return null;
+  const s1 = Number(sc.score1) || 0;
+  const s2 = Number(sc.score2) || 0;
+  if (s1 === s2) return null;
+  return s1 > s2 ? n1 : n2;
+}
+// feedsFrom 항목("group:N" 또는 다른 경기의 stage 코드) 하나를 실제 팀명으로 해석
+function resolveFeederName(level, gender, feedKey) {
+  if (feedKey.indexOf("group:") === 0) {
+    return resolveGroupWinnerName(level, gender, Number(feedKey.split(":")[1]));
+  }
+  const feederMatch = SCHEDULE.find((x) => x.level === level && x.gender === gender && x.stage === feedKey);
+  return feederMatch ? resolveMatchWinnerName(feederMatch.id) : null;
+}
+
+/* =========================================================
+   모드 1: 스코어 입력
+   ========================================================= */
+const scoreState = { day: 1, court: "A", time: null };
 
 function renderDayPicker() {
   const el = document.getElementById("dayPicker");
@@ -65,8 +158,8 @@ function renderDayPicker() {
   [1, 2].forEach((d) => {
     const b = document.createElement("button");
     b.textContent = d === 1 ? "9/5(토) 1일차" : "9/6(일) 2일차";
-    b.className = d === state.day ? "active" : "";
-    b.onclick = () => { state.day = d; state.time = null; renderAll(); };
+    b.className = d === scoreState.day ? "active" : "";
+    b.onclick = () => { scoreState.day = d; scoreState.time = null; renderScoreMode(); };
     el.appendChild(b);
   });
 }
@@ -77,14 +170,14 @@ function renderCourtPicker() {
   COURTS.forEach((c) => {
     const b = document.createElement("button");
     b.textContent = c + "구장";
-    b.className = c === state.court ? "active" : "";
-    b.onclick = () => { state.court = c; state.time = null; renderAll(); };
+    b.className = c === scoreState.court ? "active" : "";
+    b.onclick = () => { scoreState.court = c; scoreState.time = null; renderScoreMode(); };
     el.appendChild(b);
   });
 }
 
 function matchesForDayCourt() {
-  return SCHEDULE.filter((m) => m.day === state.day && m.court === state.court).sort((a, b) => a.time.localeCompare(b.time));
+  return SCHEDULE.filter((m) => m.day === scoreState.day && m.court === scoreState.court).sort((a, b) => a.time.localeCompare(b.time));
 }
 
 function renderTimePicker() {
@@ -95,21 +188,21 @@ function renderTimePicker() {
     el.innerHTML = '<div class="empty-state">이 구장에는 경기가 없습니다.</div>';
     return;
   }
-  if (!state.time) state.time = matches[0].time;
+  if (!scoreState.time) scoreState.time = matches[0].time;
   matches.forEach((m) => {
     const b = document.createElement("button");
     b.textContent = m.time;
-    b.className = m.time === state.time ? "active" : "";
-    b.onclick = () => { state.time = m.time; renderMatchArea(); syncTimeButtons(); };
+    b.className = m.time === scoreState.time ? "active" : "";
+    b.onclick = () => { scoreState.time = m.time; renderMatchArea(); syncTimeButtons(); };
     el.appendChild(b);
   });
 }
 function syncTimeButtons() {
-  [...document.getElementById("timePicker").children].forEach((b) => b.classList.toggle("active", b.textContent === state.time));
+  [...document.getElementById("timePicker").children].forEach((b) => b.classList.toggle("active", b.textContent === scoreState.time));
 }
 
 function currentMatch() {
-  return matchesForDayCourt().find((m) => m.time === state.time);
+  return matchesForDayCourt().find((m) => m.time === scoreState.time);
 }
 
 let liveScore = { score1: 0, score2: 0, status: "pending" };
@@ -133,18 +226,31 @@ function renderMatchArea() {
   currentMatchId = m.id;
   currentIsGroup = isGroup;
 
-  db.ref(`${SCORES_PATH}/${m.id}`).once("value").then((snap) => {
-    const existing = snap.val();
-    liveScore = existing || { score1: 0, score2: 0, status: "pending" };
-    if (!isGroup) {
-      freeNames.team1 = (existing && existing.team1Name) || "";
-      freeNames.team2 = (existing && existing.team2Name) || "";
+  const existing = scoresByMatchId[m.id];
+  liveScore = existing
+    ? { score1: existing.score1 || 0, score2: existing.score2 || 0, status: existing.status || "pending" }
+    : { score1: 0, score2: 0, status: "pending" };
+
+  let autoFilled1 = false,
+    autoFilled2 = false;
+  if (!isGroup) {
+    freeNames.team1 = (existing && existing.team1Name) || "";
+    freeNames.team2 = (existing && existing.team2Name) || "";
+    if (m.feedsFrom && m.feedsFrom.length === 2) {
+      if (!freeNames.team1) {
+        const r1 = resolveFeederName(m.level, m.gender, m.feedsFrom[0]);
+        if (r1) { freeNames.team1 = r1; autoFilled1 = true; }
+      }
+      if (!freeNames.team2) {
+        const r2 = resolveFeederName(m.level, m.gender, m.feedsFrom[1]);
+        if (r2) { freeNames.team2 = r2; autoFilled2 = true; }
+      }
     }
-    paintMatchCard(m, isGroup);
-  });
+  }
+  paintMatchCard(m, isGroup, autoFilled1, autoFilled2);
 }
 
-function paintMatchCard(m, isGroup) {
+function paintMatchCard(m, isGroup, autoFilled1, autoFilled2) {
   const area = document.getElementById("matchArea");
   const td = teamsDataFor(m.level, m.gender);
   const datalistId = "teamlist-" + m.level + "-" + m.gender;
@@ -155,8 +261,12 @@ function paintMatchCard(m, isGroup) {
 
   const nameFieldsHtml = isGroup
     ? ""
-    : `<input class="free-team-select" list="${datalistId}" placeholder="팀1 이름 입력" id="freeTeam1" value="${freeNames.team1 || ""}" oninput="onFreeNameChange()" />`;
-  const nameFieldsHtml2 = isGroup ? "" : `<input class="free-team-select" list="${datalistId}" placeholder="팀2 이름 입력" id="freeTeam2" value="${freeNames.team2 || ""}" oninput="onFreeNameChange()" />`;
+    : `<input class="free-team-select" list="${datalistId}" placeholder="팀1 이름 입력" id="freeTeam1" value="${freeNames.team1 || ""}" oninput="onFreeNameChange()" />
+       ${autoFilled1 ? '<p class="auto-fill-hint">✓ 예선 확정 결과로 자동 입력됨 · 다르면 직접 수정하세요</p>' : ""}`;
+  const nameFieldsHtml2 = isGroup
+    ? ""
+    : `<input class="free-team-select" list="${datalistId}" placeholder="팀2 이름 입력" id="freeTeam2" value="${freeNames.team2 || ""}" oninput="onFreeNameChange()" />
+       ${autoFilled2 ? '<p class="auto-fill-hint">✓ 예선 확정 결과로 자동 입력됨 · 다르면 직접 수정하세요</p>' : ""}`;
 
   area.innerHTML = `
     <div class="match-card">
@@ -224,20 +334,177 @@ function pushScore() {
   db.ref(`${SCORES_PATH}/${currentMatchId}`).set(payload).then(() => showToast("반영됨"));
 }
 
-function showToast(msg) {
-  const t = document.getElementById("toast");
-  t.textContent = msg;
-  t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 1200);
-}
-
-function renderAll() {
+function renderScoreMode() {
   renderDayPicker();
   renderCourtPicker();
   renderTimePicker();
   renderMatchArea();
 }
-renderAll();
+
+/* =========================================================
+   모드 2: 순위 확정 (승점 동률 조 수동 조정)
+   ========================================================= */
+const rankState = { level: "elementary", gender: "m" };
+let rankLocalOrder = {}; // rankLocalOrder[groupId] = [teamObj, ...] (편집중, 저장 전)
+
+function rankCurrentLevelConfig() {
+  return RANK_LEVELS.find((l) => l.key === rankState.level);
+}
+function rankCurrentTeamsData() {
+  return rankCurrentLevelConfig().teamsData[rankState.gender === "m" ? "male" : "female"];
+}
+function rankLevelHasGender(levelKey, gender) {
+  return SCHEDULE.some((x) => x.level === levelKey && x.gender === gender);
+}
+
+function renderRankLevelPicker() {
+  const el = document.getElementById("rankLevelPicker");
+  el.innerHTML = "";
+  RANK_LEVELS.forEach((l) => {
+    const b = document.createElement("button");
+    b.textContent = l.label;
+    b.className = l.key === rankState.level ? "active" : "";
+    b.onclick = () => {
+      rankState.level = l.key;
+      if (!rankLevelHasGender(rankState.level, rankState.gender)) {
+        rankState.gender = rankState.gender === "m" ? "f" : "m";
+      }
+      rankLocalOrder = {};
+      renderRankMode();
+    };
+    el.appendChild(b);
+  });
+}
+
+function renderRankGenderPicker() {
+  const el = document.getElementById("rankGenderPicker");
+  el.innerHTML = "";
+  ["m", "f"].forEach((g) => {
+    if (!rankLevelHasGender(rankState.level, g)) return;
+    const b = document.createElement("button");
+    b.textContent = GENDER_LABEL[g] + "부";
+    b.className = g === rankState.gender ? "active" : "";
+    b.onclick = () => { rankState.gender = g; rankLocalOrder = {}; renderRankMode(); };
+    el.appendChild(b);
+  });
+}
+
+function renderRankGroups() {
+  const td = rankCurrentTeamsData();
+  const genderMatches = SCHEDULE.filter((m) => m.level === rankState.level && m.gender === rankState.gender);
+  const wrap = document.getElementById("rankGroupsWrap");
+  wrap.innerHTML = "";
+
+  Object.keys(td.groups)
+    .sort((a, b) => Number(a) - Number(b))
+    .forEach((gid) => {
+      const group = td.groups[gid];
+      const groupMatches = genderMatches.filter((m) => m.stage === "group" && String(m.groupId) === String(gid));
+      const auto = calcGroupStandings(group, groupMatches, scoresByMatchId, td.teams, null);
+
+      const savedOverride = (rankOverridesByLevel[rankState.level] || {})[rankState.gender]?.[gid];
+      if (!rankLocalOrder[gid]) {
+        if (savedOverride && savedOverride.length) {
+          const byId = {};
+          auto.list.forEach((t) => (byId[t.teamId] = t));
+          rankLocalOrder[gid] = savedOverride.map((id) => byId[id]).filter(Boolean);
+        } else {
+          rankLocalOrder[gid] = auto.list.slice();
+        }
+      }
+
+      const card = document.createElement("div");
+      card.className = "rank-card";
+
+      const isOverrideActive = !!(savedOverride && savedOverride.length);
+      let statusHtml;
+      if (isOverrideActive) {
+        statusHtml = `<div class="status-line confirmed">✓ 운영본부 확정 순위 사용중</div>`;
+      } else if (auto.tied) {
+        statusHtml = `<div class="status-line warn">⚠ 승점 동률 — 순서를 정해 확정해주세요</div>`;
+      } else {
+        statusHtml = `<div class="status-line auto">자동계산 순위 사용중 (동률 없음)</div>`;
+      }
+
+      card.innerHTML = `
+        <div class="card-head">
+          <h3>${gid}조</h3>
+          <span class="type-tag">${group.type === "four" ? "4팀조 · 2경기제" : "3팀조"}</span>
+        </div>
+        ${statusHtml}
+        <div class="rows" id="rank-rows-${gid}"></div>
+        <div class="card-actions">
+          <button class="btn-save" onclick="saveRankOverride('${gid}')">확정 저장</button>
+          ${isOverrideActive ? `<button class="btn-reset" onclick="resetRankOverride('${gid}')">자동계산으로 되돌리기</button>` : ""}
+        </div>
+      `;
+      wrap.appendChild(card);
+      renderRankRows(gid);
+    });
+}
+
+function renderRankRows(gid) {
+  const rowsEl = document.getElementById(`rank-rows-${gid}`);
+  if (!rowsEl) return;
+  const order = rankLocalOrder[gid];
+  rowsEl.innerHTML = "";
+  order.forEach((t, idx) => {
+    const row = document.createElement("div");
+    row.className = "rank-row";
+    row.innerHTML = `
+      <div class="pos">${idx + 1}</div>
+      <div class="info">
+        <div class="n">${t.name}</div>
+        <div class="s">승점 ${t.points} · 득실 ${t.runsFor}:${t.runsAgainst} · ${t.win}승 ${t.draw}무 ${t.loss}패</div>
+      </div>
+      <div class="moves">
+        <button ${idx === 0 ? "disabled" : ""} onclick="moveRankRow('${gid}',${idx},-1)">▲</button>
+        <button ${idx === order.length - 1 ? "disabled" : ""} onclick="moveRankRow('${gid}',${idx},1)">▼</button>
+      </div>
+    `;
+    rowsEl.appendChild(row);
+  });
+}
+
+function moveRankRow(gid, idx, dir) {
+  const order = rankLocalOrder[gid];
+  const target = idx + dir;
+  if (target < 0 || target >= order.length) return;
+  [order[idx], order[target]] = [order[target], order[idx]];
+  renderRankRows(gid);
+}
+
+function saveRankOverride(gid) {
+  const order = rankLocalOrder[gid].map((t) => t.teamId);
+  db.ref(`tiball/rankOverrides/${rankState.level}/${rankState.gender}/${gid}`).set(order).then(() => showToast("확정되었습니다"));
+}
+
+function resetRankOverride(gid) {
+  if (!confirm("이 조를 다시 자동계산 순위로 되돌릴까요?")) return;
+  db.ref(`tiball/rankOverrides/${rankState.level}/${rankState.gender}/${gid}`).remove().then(() => {
+    delete rankLocalOrder[gid];
+    showToast("자동계산으로 되돌렸습니다");
+  });
+}
+
+function renderRankMode() {
+  renderRankLevelPicker();
+  renderRankGenderPicker();
+  renderRankGroups();
+}
+
+/* =========================================================
+   공통
+   ========================================================= */
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1400);
+}
+
+renderScoreMode();
+renderRankMode();
 </script>
 </body>
 </html>

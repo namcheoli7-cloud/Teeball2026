@@ -104,6 +104,53 @@ function initApp(LEVEL_CONFIG) {
     return SCHEDULE.filter((m) => m.level === LEVEL_CONFIG.key && m.gender === state.gender);
   }
 
+  // 현재 gender의 조별 순위 계산 결과를 캐싱 (여러 뷰에서 재사용)
+  let cachedStandingsAll = null;
+  function getStandingsAll() {
+    if (cachedStandingsAll) return cachedStandingsAll;
+    const td = currentTeamsData();
+    const genderMatches = matchesForGender();
+    const overridesForGender = rankOverrides[state.gender] || {};
+    cachedStandingsAll = calcAllStandings(td.groups, genderMatches, scoresByMatchId, td.teams, overridesForGender);
+    return cachedStandingsAll;
+  }
+
+  // gid조 1위가 확정됐으면 실제 팀명을, 아직(동률 등)이면 "N조 1위"를 반환
+  function resolveSeedLabel(gid) {
+    const g = getStandingsAll()[gid];
+    if (!g) return { text: gid + "조 1위", sub: "", done: false };
+    if (g.isOverride || !g.tied) {
+      return { text: g.list[0].name, sub: gid + "조 1위 확정", done: true };
+    }
+    return { text: gid + "조 1위", sub: "예선 진행중", done: false };
+  }
+
+  // 종료된 경기의 승리팀명을 반환 (team1Name/team2Name이 저장돼 있어야 함)
+  function resolveMatchWinner(matchId) {
+    const sc = scoresByMatchId[matchId];
+    if (!sc || sc.status !== "final") return null;
+    const n1 = sc.team1Name,
+      n2 = sc.team2Name;
+    if (!n1 && !n2) return null;
+    const s1 = Number(sc.score1) || 0;
+    const s2 = Number(sc.score2) || 0;
+    if (s1 === s2) return null;
+    return s1 > s2 ? n1 : n2;
+  }
+
+  // 결선 경기(m)의 두 참가팀명을 feedsFrom을 따라가며 자동으로 해석 (확정 안 됐으면 null)
+  function resolveMatchSides(m) {
+    if (!m.feedsFrom || m.feedsFrom.length !== 2) return [null, null];
+    return m.feedsFrom.map((f) => {
+      if (f.indexOf("group:") === 0) {
+        const r = resolveSeedLabel(Number(f.split(":")[1]));
+        return r.done ? r.text : null;
+      }
+      const feederMatch = SCHEDULE.find((x) => x.level === LEVEL_CONFIG.key && x.gender === state.gender && x.stage === f);
+      return feederMatch ? resolveMatchWinner(feederMatch.id) : null;
+    });
+  }
+
   // ---------- 시간표 ----------
   function renderSchedule() {
     const all = matchesForGender();
@@ -156,13 +203,22 @@ function initApp(LEVEL_CONFIG) {
   function matchCellHtml(m) {
     const sc = scoresByMatchId[m.id];
     let side1Text = null,
-      side2Text = null;
+      side2Text = null,
+      autoResolved = false;
+
     if (m.stage === "group") {
       side1Text = teamName(m.team1);
       side2Text = teamName(m.team2);
     } else if (sc && sc.team1Name && sc.team2Name) {
       side1Text = sc.team1Name;
       side2Text = sc.team2Name;
+    } else {
+      const [r1, r2] = resolveMatchSides(m);
+      if (r1 && r2) {
+        side1Text = r1;
+        side2Text = r2;
+        autoResolved = true;
+      }
     }
 
     const stageTag = m.stage !== "group" ? `<span class="match-stage">${m.stageLabel}</span>` : "";
@@ -188,8 +244,9 @@ function initApp(LEVEL_CONFIG) {
       const statusTxt = sc.status === "progress" ? " (진행중)" : "";
       scoreLine = `<span class="match-score">${sc.score1 ?? "-"} : ${sc.score2 ?? "-"}${statusTxt}</span>`;
     }
+    const autoTag = autoResolved ? `<span class="match-note">(예정 · 예선확정)</span>` : "";
     const note = m.note ? `<span class="match-note">${m.note}</span>` : "";
-    return `${stageTag}<span class="match-teams">${body}</span>${note}${scoreLine}`;
+    return `${stageTag}<span class="match-teams">${body}</span>${autoTag}${note}${scoreLine}`;
   }
 
   // ---------- 예선 순위표 ----------
@@ -258,36 +315,26 @@ function initApp(LEVEL_CONFIG) {
       const row = feederNodes.length ? feederNodes.reduce((s, n) => s + n.row, 0) / feederNodes.length : 0;
       nodes[m.stage] = { id: m.stage, type: "match", match: m, col, row };
     }
+
+    // 후처리: 시드(조1위)가 대회 결선 결과와 짝지어지는 경우(부전승 성격),
+    // 시드를 상대 매치와 같은 라운드(열)로 당겨와서 대진선이 자연스럽게 이어지도록 조정
+    Object.values(nodes).forEach((n) => {
+      if (n.type !== "match") return;
+      const feeders = (n.match.feedsFrom || []).map((f) => nodes[f]);
+      if (feeders.length !== 2) return;
+      const seed = feeders.find((f) => f && f.type === "seed");
+      const matchFeeder = feeders.find((f) => f && f.type === "match");
+      if (seed && matchFeeder && seed.col < matchFeeder.col) {
+        seed.col = matchFeeder.col;
+        seed.row = matchFeeder.row + 1;
+        n.row = (matchFeeder.row + seed.row) / 2;
+      }
+    });
+
     return nodes;
   }
 
-  function resolveSeedLabel(gid, standingsAll) {
-    const g = standingsAll[gid];
-    if (!g) return { text: gid + "조 1위", sub: "", done: false };
-    if (g.isOverride || !g.tied) {
-      return { text: g.list[0].name, sub: gid + "조 1위 확정", done: true };
-    }
-    return { text: gid + "조 1위", sub: "예선 진행중", done: false };
-  }
-
-  function resolveMatchWinner(matchId) {
-    const sc = scoresByMatchId[matchId];
-    if (!sc || sc.status !== "final") return null;
-    const n1 = sc.team1Name,
-      n2 = sc.team2Name;
-    if (!n1 && !n2) return null;
-    const s1 = Number(sc.score1) || 0;
-    const s2 = Number(sc.score2) || 0;
-    if (s1 === s2) return null;
-    return s1 > s2 ? n1 : n2;
-  }
-
   function renderBracket() {
-    const td = currentTeamsData();
-    const genderMatches = matchesForGender();
-    const overridesForGender = rankOverrides[state.gender] || {};
-    const standingsAll = calcAllStandings(td.groups, genderMatches, scoresByMatchId, td.teams, overridesForGender);
-
     const nodes = buildBracketLayout();
     const nodeList = Object.values(nodes);
     if (!nodeList.length) {
@@ -306,10 +353,10 @@ function initApp(LEVEL_CONFIG) {
 
     // 각 노드가 화면에 표시할 라벨/서브라벨/완료여부 계산
     function nodeDisplay(n) {
-      if (n.type === "seed") return resolveSeedLabel(n.groupId, standingsAll);
+      if (n.type === "seed") return resolveSeedLabel(n.groupId);
       const m = n.match;
       const sides = (m.feedsFrom || []).map((f) => {
-        if (f.indexOf("group:") === 0) return resolveSeedLabel(Number(f.split(":")[1]), standingsAll).text;
+        if (f.indexOf("group:") === 0) return resolveSeedLabel(Number(f.split(":")[1])).text;
         const feederNode = nodes[f];
         const winner = feederNode ? resolveMatchWinner(feederNode.match.id) : null;
         return winner || (feederNode ? feederNode.match.stageLabel + " 승" : "");
@@ -382,6 +429,7 @@ function initApp(LEVEL_CONFIG) {
   }
 
   function renderAll() {
+    cachedStandingsAll = null;
     if (state.view === "schedule") renderSchedule();
     if (state.view === "standings") renderStandings();
     if (state.view === "bracket") renderBracket();
