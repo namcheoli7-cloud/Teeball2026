@@ -345,7 +345,7 @@ function renderScoreMode() {
    모드 2: 순위 확정 (승점 동률 조 수동 조정)
    ========================================================= */
 const rankState = { level: "elementary", gender: "m" };
-let rankLocalOrder = {}; // rankLocalOrder[groupId] = [teamObj, ...] (편집중, 저장 전)
+let rankLocalOrder = {}; // rankLocalOrder[groupId] = [teamId, ...] (순서만 저장, 통계는 항상 새로 계산)
 
 function rankCurrentLevelConfig() {
   return RANK_LEVELS.find((l) => l.key === rankState.level);
@@ -401,16 +401,13 @@ function renderRankGroups() {
       const group = td.groups[gid];
       const groupMatches = genderMatches.filter((m) => m.stage === "group" && String(m.groupId) === String(gid));
       const auto = calcGroupStandings(group, groupMatches, scoresByMatchId, td.teams, null);
+      const byId = {};
+      auto.list.forEach((t) => (byId[t.teamId] = t));
 
       const savedOverride = (rankOverridesByLevel[rankState.level] || {})[rankState.gender]?.[gid];
       if (!rankLocalOrder[gid]) {
-        if (savedOverride && savedOverride.length) {
-          const byId = {};
-          auto.list.forEach((t) => (byId[t.teamId] = t));
-          rankLocalOrder[gid] = savedOverride.map((id) => byId[id]).filter(Boolean);
-        } else {
-          rankLocalOrder[gid] = auto.list.slice();
-        }
+        // 순서(teamId 배열)만 저장 — 통계는 매번 새로 계산된 byId에서 가져옴
+        rankLocalOrder[gid] = (savedOverride && savedOverride.length) ? savedOverride.slice() : auto.list.map((t) => t.teamId);
       }
 
       const card = document.createElement("div");
@@ -439,16 +436,17 @@ function renderRankGroups() {
         </div>
       `;
       wrap.appendChild(card);
-      renderRankRows(gid);
+      renderRankRows(gid, byId);
     });
 }
 
-function renderRankRows(gid) {
+function renderRankRows(gid, byId) {
   const rowsEl = document.getElementById(`rank-rows-${gid}`);
   if (!rowsEl) return;
   const order = rankLocalOrder[gid];
   rowsEl.innerHTML = "";
-  order.forEach((t, idx) => {
+  order.forEach((teamId, idx) => {
+    const t = byId[teamId] || { name: "?", points: 0, runsFor: 0, runsAgainst: 0, win: 0, draw: 0, loss: 0 };
     const row = document.createElement("div");
     row.className = "rank-row";
     row.innerHTML = `
@@ -471,11 +469,11 @@ function moveRankRow(gid, idx, dir) {
   const target = idx + dir;
   if (target < 0 || target >= order.length) return;
   [order[idx], order[target]] = [order[target], order[idx]];
-  renderRankRows(gid);
+  renderRankGroups();
 }
 
 function saveRankOverride(gid) {
-  const order = rankLocalOrder[gid].map((t) => t.teamId);
+  const order = rankLocalOrder[gid];
   db.ref(`tiball/rankOverrides/${rankState.level}/${rankState.gender}/${gid}`).set(order).then(() => showToast("확정되었습니다"));
 }
 
