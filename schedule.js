@@ -15,9 +15,9 @@ const SCHEDULE = [
   { id: "1-A-1200", day: 1, court: "A", time: "12:00", level: "elementary", gender: "m", stage: "group", groupId: 6, team1: 17, team2: 18 },
   { id: "1-A-1300", day: 1, court: "A", time: "13:00", level: "elementary", gender: "m", stage: "group", groupId: 1, team1: 3, team2: 1 },
   { id: "1-A-1400", day: 1, court: "A", time: "14:00", level: "elementary", gender: "m", stage: "group", groupId: 6, team1: 18, team2: 16 },
-  { id: "1-A-1500", day: 1, court: "A", time: "15:00", level: "elementary", gender: "m", stage: "final1", stageLabel: "결선 1경기", slotLabel: "1조1위 : 2조1위" },
-  { id: "1-A-1600", day: 1, court: "A", time: "16:00", level: "elementary", gender: "m", stage: "semi1", stageLabel: "4강 1경기", slotLabel: "결선1경기 승 : 결선2경기 승" },
-  { id: "1-A-1700", day: 1, court: "A", time: "17:00", level: "elementary", gender: "m", stage: "final", stageLabel: "결승", slotLabel: "4강1경기 승 : 4강2경기 승" },
+  { id: "1-A-1500", day: 1, court: "A", time: "15:00", level: "elementary", gender: "m", stage: "final1", stageLabel: "결선 1경기", slotLabel: "1조1위 : 2조1위", feedsFrom: ["group:1","group:2"] },
+  { id: "1-A-1600", day: 1, court: "A", time: "16:00", level: "elementary", gender: "m", stage: "semi1", stageLabel: "4강 1경기", slotLabel: "결선1경기 승 : 결선2경기 승", feedsFrom: ["final1","final2"] },
+  { id: "1-A-1700", day: 1, court: "A", time: "17:00", level: "elementary", gender: "m", stage: "final", stageLabel: "결승", slotLabel: "4강1경기 승 : 4강2경기 승", feedsFrom: ["semi1","semi2"] },
 
   // --- B구장 ---
   { id: "1-B-0900", day: 1, court: "B", time: "09:00", level: "elementary", gender: "m", stage: "group", groupId: 2, team1: 4, team2: 5 },
@@ -26,8 +26,8 @@ const SCHEDULE = [
   { id: "1-B-1200", day: 1, court: "B", time: "12:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 21, team2: 22 },
   { id: "1-B-1300", day: 1, court: "B", time: "13:00", level: "elementary", gender: "m", stage: "group", groupId: 2, team1: 6, team2: 4 },
   { id: "1-B-1400", day: 1, court: "B", time: "14:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 20, team2: 21 },
-  { id: "1-B-1500", day: 1, court: "B", time: "15:00", level: "elementary", gender: "m", stage: "final2", stageLabel: "결선 2경기", slotLabel: "3조1위 : 4조1위" },
-  { id: "1-B-1600", day: 1, court: "B", time: "16:00", level: "elementary", gender: "m", stage: "semi2", stageLabel: "4강 2경기", slotLabel: "결선3경기 승 : 7조1위" },
+  { id: "1-B-1500", day: 1, court: "B", time: "15:00", level: "elementary", gender: "m", stage: "final2", stageLabel: "결선 2경기", slotLabel: "3조1위 : 4조1위", feedsFrom: ["group:3","group:4"] },
+  { id: "1-B-1600", day: 1, court: "B", time: "16:00", level: "elementary", gender: "m", stage: "semi2", stageLabel: "4강 2경기", slotLabel: "결선3경기 승 : 7조1위", feedsFrom: ["final3","group:7"] },
 
   // --- C구장 ---
   { id: "1-C-0900", day: 1, court: "C", time: "09:00", level: "elementary", gender: "m", stage: "group", groupId: 3, team1: 7, team2: 8 },
@@ -36,7 +36,7 @@ const SCHEDULE = [
   { id: "1-C-1200", day: 1, court: "C", time: "12:00", level: "middle", gender: "f", stage: "group", groupId: 1, team1: 2, team2: 3 },
   { id: "1-C-1300", day: 1, court: "C", time: "13:00", level: "elementary", gender: "m", stage: "group", groupId: 3, team1: 9, team2: 7 },
   { id: "1-C-1400", day: 1, court: "C", time: "14:00", level: "elementary", gender: "m", stage: "group", groupId: 7, team1: 22, team2: 19 },
-  { id: "1-C-1500", day: 1, court: "C", time: "15:00", level: "elementary", gender: "m", stage: "final3", stageLabel: "결선 3경기", slotLabel: "5조1위 : 6조1위" },
+  { id: "1-C-1500", day: 1, court: "C", time: "15:00", level: "elementary", gender: "m", stage: "final3", stageLabel: "결선 3경기", slotLabel: "5조1위 : 6조1위", feedsFrom: ["group:5","group:6"] },
 
   // --- D구장 ---
   { id: "1-D-0900", day: 1, court: "D", time: "09:00", level: "elementary", gender: "m", stage: "group", groupId: 4, team1: 10, team2: 11 },
@@ -57,8 +57,8 @@ const SCHEDULE = [
   { id: "1-E-1300", day: 1, court: "E", time: "13:00", level: "elementary", gender: "m", stage: "group", groupId: 5, team1: 15, team2: 13 },
   { id: "1-E-1400", day: 1, court: "E", time: "14:00", level: "middle", gender: "f", stage: "group", groupId: 2, team1: 6, team2: 4 },
   { id: "1-E-1500", day: 1, court: "E", time: "15:00", level: "middle", gender: "f", stage: "group", groupId: 3, team1: 9, team2: 7 },
-  { id: "1-E-1600", day: 1, court: "E", time: "16:00", level: "middle", gender: "f", stage: "finalqual", stageLabel: "결승 진출전", slotLabel: "1조1위 : 2조1위" },
-  { id: "1-E-1700", day: 1, court: "E", time: "17:00", level: "middle", gender: "f", stage: "final", stageLabel: "결승", slotLabel: "결승진출전 승 : 3조1위" },
+  { id: "1-E-1600", day: 1, court: "E", time: "16:00", level: "middle", gender: "f", stage: "finalqual", stageLabel: "결승 진출전", slotLabel: "1조1위 : 2조1위", feedsFrom: ["group:1","group:2"] },
+  { id: "1-E-1700", day: 1, court: "E", time: "17:00", level: "middle", gender: "f", stage: "final", stageLabel: "결승", slotLabel: "결승진출전 승 : 3조1위", feedsFrom: ["finalqual","group:3"] },
 
   // ===================== DAY 2 (9/6 일) — 여초 / 남중 =====================
   // --- A구장 ---
@@ -68,9 +68,9 @@ const SCHEDULE = [
   { id: "2-A-1200", day: 2, court: "A", time: "12:00", level: "middle", gender: "m", stage: "group", groupId: 4, team1: 11, team2: 12 },
   { id: "2-A-1300", day: 2, court: "A", time: "13:00", level: "middle", gender: "m", stage: "group", groupId: 1, team1: 3, team2: 1 },
   { id: "2-A-1400", day: 2, court: "A", time: "14:00", level: "middle", gender: "m", stage: "group", groupId: 4, team1: 12, team2: 10 },
-  { id: "2-A-1500", day: 2, court: "A", time: "15:00", level: "middle", gender: "m", stage: "semiqual", stageLabel: "4강 진출전", slotLabel: "3조1위 : 4조1위" },
-  { id: "2-A-1600", day: 2, court: "A", time: "16:00", level: "middle", gender: "m", stage: "semi1", stageLabel: "4강 1경기", slotLabel: "1조1위 : 2조1위" },
-  { id: "2-A-1700", day: 2, court: "A", time: "17:00", level: "middle", gender: "m", stage: "final", stageLabel: "결승", slotLabel: "4강1경기 승 : 4강2경기 승" },
+  { id: "2-A-1500", day: 2, court: "A", time: "15:00", level: "middle", gender: "m", stage: "semiqual", stageLabel: "4강 진출전", slotLabel: "3조1위 : 4조1위", feedsFrom: ["group:3","group:4"] },
+  { id: "2-A-1600", day: 2, court: "A", time: "16:00", level: "middle", gender: "m", stage: "semi1", stageLabel: "4강 1경기", slotLabel: "1조1위 : 2조1위", feedsFrom: ["group:1","group:2"] },
+  { id: "2-A-1700", day: 2, court: "A", time: "17:00", level: "middle", gender: "m", stage: "final", stageLabel: "결승", slotLabel: "4강1경기 승 : 4강2경기 승", feedsFrom: ["semi1","semi2"] },
 
   // --- B구장 ---
   { id: "2-B-0900", day: 2, court: "B", time: "09:00", level: "middle", gender: "m", stage: "group", groupId: 2, team1: 4, team2: 5 },
@@ -79,7 +79,7 @@ const SCHEDULE = [
   { id: "2-B-1200", day: 2, court: "B", time: "12:00", level: "middle", gender: "m", stage: "group", groupId: 5, team1: 14, team2: 15 },
   { id: "2-B-1300", day: 2, court: "B", time: "13:00", level: "middle", gender: "m", stage: "group", groupId: 2, team1: 6, team2: 4 },
   { id: "2-B-1400", day: 2, court: "B", time: "14:00", level: "middle", gender: "m", stage: "group", groupId: 5, team1: 15, team2: 13 },
-  { id: "2-B-1600", day: 2, court: "B", time: "16:00", level: "middle", gender: "m", stage: "semi2", stageLabel: "4강 2경기", slotLabel: "4강진출전 승 : 5조1위" },
+  { id: "2-B-1600", day: 2, court: "B", time: "16:00", level: "middle", gender: "m", stage: "semi2", stageLabel: "4강 2경기", slotLabel: "4강진출전 승 : 5조1위", feedsFrom: ["semiqual","group:5"] },
 
   // --- C구장 ---
   { id: "2-C-0900", day: 2, court: "C", time: "09:00", level: "middle", gender: "m", stage: "group", groupId: 3, team1: 7, team2: 8 },
@@ -94,8 +94,8 @@ const SCHEDULE = [
   { id: "2-D-1200", day: 2, court: "D", time: "12:00", level: "elementary", gender: "f", stage: "group", groupId: 3, team1: 8, team2: 9 },
   { id: "2-D-1300", day: 2, court: "D", time: "13:00", level: "elementary", gender: "f", stage: "group", groupId: 1, team1: 3, team2: 1 },
   { id: "2-D-1400", day: 2, court: "D", time: "14:00", level: "elementary", gender: "f", stage: "group", groupId: 3, team1: 9, team2: 7 },
-  { id: "2-D-1600", day: 2, court: "D", time: "16:00", level: "elementary", gender: "f", stage: "semi1", stageLabel: "4강 1경기", slotLabel: "1조1위 : 2조1위" },
-  { id: "2-D-1700", day: 2, court: "D", time: "17:00", level: "elementary", gender: "f", stage: "final", stageLabel: "결승", slotLabel: "4강1경기 승 : 4강2경기 승" },
+  { id: "2-D-1600", day: 2, court: "D", time: "16:00", level: "elementary", gender: "f", stage: "semi1", stageLabel: "4강 1경기", slotLabel: "1조1위 : 2조1위", feedsFrom: ["group:1","group:2"] },
+  { id: "2-D-1700", day: 2, court: "D", time: "17:00", level: "elementary", gender: "f", stage: "final", stageLabel: "결승", slotLabel: "4강1경기 승 : 4강2경기 승", feedsFrom: ["semi1","semi2"] },
 
   // --- E구장 ---
   { id: "2-E-0900", day: 2, court: "E", time: "09:00", level: "elementary", gender: "f", stage: "group", groupId: 2, team1: 4, team2: 5 },
@@ -104,7 +104,7 @@ const SCHEDULE = [
   { id: "2-E-1200", day: 2, court: "E", time: "12:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 12, team2: 13 },
   { id: "2-E-1300", day: 2, court: "E", time: "13:00", level: "elementary", gender: "f", stage: "group", groupId: 2, team1: 6, team2: 4 },
   { id: "2-E-1400", day: 2, court: "E", time: "14:00", level: "elementary", gender: "f", stage: "group", groupId: 4, team1: 11, team2: 12 },
-  { id: "2-E-1600", day: 2, court: "E", time: "16:00", level: "elementary", gender: "f", stage: "semi2", stageLabel: "4강 2경기", slotLabel: "3조1위 : 4조1위" },
+  { id: "2-E-1600", day: 2, court: "E", time: "16:00", level: "elementary", gender: "f", stage: "semi2", stageLabel: "4강 2경기", slotLabel: "3조1위 : 4조1위", feedsFrom: ["group:3","group:4"] },
 ];
 
 // 편의 함수: 특정 레벨/성별 경기만 필터
