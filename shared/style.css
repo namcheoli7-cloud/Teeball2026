@@ -156,6 +156,7 @@ a { color: inherit; }
 
 .day-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 14px 16px 4px;
   position: sticky;
@@ -178,6 +179,18 @@ a { color: inherit; }
   background: var(--ink);
   color: var(--paper);
   border-color: var(--ink);
+}
+
+.gender-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 main { padding: 4px 16px 24px; max-width: 720px; margin: 0 auto; }

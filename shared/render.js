@@ -140,15 +140,20 @@ function initApp(LEVEL_CONFIG) {
 
   // 결선 경기(m)의 두 참가팀명을 feedsFrom을 따라가며 자동으로 해석 (확정 안 됐으면 null)
   function resolveMatchSides(m) {
-    if (!m.feedsFrom || m.feedsFrom.length !== 2) return [null, null];
-    return m.feedsFrom.map((f) => {
+    if (!m.feedsFrom || m.feedsFrom.length !== 2) return { texts: [m.slotLabel || "", ""], resolved: [false, false] };
+    const resolved = [];
+    const texts = m.feedsFrom.map((f) => {
       if (f.indexOf("group:") === 0) {
         const r = resolveSeedLabel(Number(f.split(":")[1]));
-        return r.done ? r.text : null;
+        resolved.push(r.done);
+        return r.text;
       }
       const feederMatch = SCHEDULE.find((x) => x.level === LEVEL_CONFIG.key && x.gender === state.gender && x.stage === f);
-      return feederMatch ? resolveMatchWinner(feederMatch.id) : null;
+      const winner = feederMatch ? resolveMatchWinner(feederMatch.id) : null;
+      resolved.push(!!winner);
+      return winner || (feederMatch ? feederMatch.stageLabel + " 승" : "");
     });
+    return { texts, resolved };
   }
 
   // ---------- 시간표 ----------
@@ -158,6 +163,12 @@ function initApp(LEVEL_CONFIG) {
 
     const dayTabsEl = document.getElementById("dayTabs");
     dayTabsEl.innerHTML = "";
+
+    const genderBadge = document.createElement("span");
+    genderBadge.className = "gender-badge";
+    genderBadge.textContent = GENDER_LABEL[state.gender];
+    dayTabsEl.appendChild(genderBadge);
+
     days.forEach((d) => {
       const b = document.createElement("button");
       b.textContent = "9월 " + (d === 1 ? "5일(토) · 1일차" : "6일(일) · 2일차");
@@ -225,12 +236,11 @@ function initApp(LEVEL_CONFIG) {
       side1Text = sc.team1Name;
       side2Text = sc.team2Name;
     } else {
-      const [r1, r2] = resolveMatchSides(m);
-      if (r1 && r2) {
-        side1Text = r1;
-        side2Text = r2;
-        autoResolved = true;
-      }
+      const { texts, resolved } = resolveMatchSides(m);
+      side1Text = texts[0];
+      side2Text = texts[1];
+      if (resolved[0] && resolved[1]) autoResolved = "full";
+      else if (resolved[0] || resolved[1]) autoResolved = "partial";
     }
 
     const stageTag = m.stage !== "group" ? `<span class="match-stage">${m.stageLabel}</span>` : "";
@@ -256,7 +266,12 @@ function initApp(LEVEL_CONFIG) {
       const statusTxt = sc.status === "progress" ? " (진행중)" : "";
       scoreLine = `<span class="match-score">${sc.score1 ?? "-"} : ${sc.score2 ?? "-"}${statusTxt}</span>`;
     }
-    const autoTag = autoResolved ? `<span class="match-note">(예정 · 예선확정)</span>` : "";
+    const autoTag =
+      autoResolved === "full"
+        ? `<span class="match-note">(예정 · 예선확정)</span>`
+        : autoResolved === "partial"
+        ? `<span class="match-note">(한쪽만 확정 · 나머지 예선중)</span>`
+        : "";
     const note = m.note ? `<span class="match-note">${m.note}</span>` : "";
     return `${stageTag}<span class="match-teams">${body}</span>${autoTag}${note}${scoreLine}`;
   }
