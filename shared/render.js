@@ -173,6 +173,11 @@ function initApp(LEVEL_CONFIG) {
     const times = [...new Set(dayMatches.map((m) => m.time))].sort();
 
     const wrap = document.getElementById("scheduleTable");
+    // 실시간 업데이트로 다시 그릴 때 스크롤 위치가 리셋되지 않도록 저장해둠
+    const prevScroll = wrap.querySelector(".schedule-scroll");
+    const savedScrollLeft = prevScroll ? prevScroll.scrollLeft : 0;
+    const savedScrollTop = prevScroll ? prevScroll.scrollTop : 0;
+
     if (times.length === 0) {
       wrap.innerHTML = '<div class="empty-state">해당 일자에 경기가 없습니다.</div>';
       return;
@@ -198,6 +203,13 @@ function initApp(LEVEL_CONFIG) {
     });
     html += "</tbody></table></div>";
     wrap.innerHTML = html;
+
+    // 스크롤 위치 복원 (요일이 바뀐 경우가 아니라면 이전 위치 그대로 유지)
+    const newScroll = wrap.querySelector(".schedule-scroll");
+    if (newScroll && (savedScrollLeft || savedScrollTop)) {
+      newScroll.scrollLeft = savedScrollLeft;
+      newScroll.scrollTop = savedScrollTop;
+    }
   }
 
   function matchCellHtml(m) {
