@@ -10,7 +10,7 @@
 
 const COURTS = ["A", "B", "C", "D", "E"];
 const GENDER_LABEL = { m: "남자부", f: "여자부" };
-const GROUP_PASTELS = ["#e5f3e8", "#bcd9f2", "#fdf1e1", "#fbe7ed", "#efe4f7", "#8fd4c9", "#f3d98b", "#e8e8f8"];
+const GROUP_PASTELS = ["#e5f3e8", "#bcd9f2", "#fdf1e1", "#f7b8cc", "#d4b896", "#8fd4c9", "#f3d98b", "#c9b3ea"];
 
 function updateStickyOffsets() {
   const header = document.querySelector(".site-header");
