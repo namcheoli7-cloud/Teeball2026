@@ -284,12 +284,12 @@ table.standings tr:last-child td { border-bottom: none; }
   box-sizing: border-box;
 }
 
-.bx-seed { border-left: 4px solid var(--line); }
+.bx-seed { border-left: 4px solid var(--line); min-height: 44px; }
 .bx-seed.done { border-left: 4px solid var(--accent); }
 .bx-seed-name { font-weight: 700; font-size: 13px; }
 .bx-seed-sub { font-size: 10px; color: #8a8f85; margin-top: 1px; }
 
-.bx-match { border-left: 4px solid var(--accent); }
+.bx-match { border-left: 4px solid var(--accent); min-height: 92px; }
 .bx-match-stage { font-size: 10px; font-weight: 700; color: var(--accent); margin-bottom: 3px; }
 .bx-match-side { font-size: 12px; font-weight: 600; color: var(--ink); padding: 1px 0; }
 .bx-match-side.win { font-weight: 800; color: var(--accent); }

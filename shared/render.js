@@ -120,7 +120,7 @@ function initApp(LEVEL_CONFIG) {
     const g = getStandingsAll()[gid];
     if (!g) return { text: gid + "조 1위", sub: "", done: false };
     if (g.isOverride || (g.complete && !g.tied) || g.rank1Clinched) {
-      const sub = g.isOverride ? gid + "조 1위 확정(운영본부)" : g.rank1Clinched && !g.complete ? gid + "조 1위 확정(수학적)" : gid + "조 1위 확정";
+      const sub = g.isOverride ? "운영본부 확정" : g.rank1Clinched && !g.complete ? "수학적 확정" : "예선 확정";
       return { text: g.list[0].name, sub, done: true };
     }
     return { text: gid + "조 1위", sub: "예선 진행중", done: false };
@@ -290,10 +290,15 @@ function initApp(LEVEL_CONFIG) {
       .forEach((gid) => {
         const group = td.groups[gid];
         const { list: rows, tied, isOverride, complete, rank1Clinched } = all[gid];
+        const isTQBEligible =
+          group.type !== "four" &&
+          ((LEVEL_CONFIG.key === "middle" && state.gender === "m") || (LEVEL_CONFIG.key === "elementary" && state.gender === "f"));
         html += `<div class="group-block"><h3>${gid}조</h3>`;
 
         if (group.type === "four") {
           html += `<div class="group-note">4팀조 · 2경기제 · 동률 시 최소실점→최다득점 순</div>`;
+        } else if (isTQBEligible) {
+          html += `<div class="group-note">승점 → TQB(맞대결 이닝 기준) 순으로 순위를 매깁니다</div>`;
         } else {
           html += `<div class="group-note">승점으로만 순위를 매깁니다</div>`;
         }
@@ -303,13 +308,17 @@ function initApp(LEVEL_CONFIG) {
           html += `<div class="group-note confirmed">✓ 1위 수학적으로 확정 (나머지 경기 결과와 무관)</div>`;
         } else if (!complete) {
           html += `<div class="group-note">예선 진행중 (경기 결과에 따라 순위가 바뀔 수 있어요)</div>`;
+        } else if (tied && isTQBEligible) {
+          html += `<div class="group-note warn">⚠ 순위산정 대기중 (TQB 계산 필요)</div>`;
         } else if (tied) {
           html += `<div class="group-note warn">⚠ 승점 동률 — 운영본부 확인 후 순위가 확정됩니다</div>`;
         }
 
+        const rankResolved = isOverride || (complete && !tied) || rank1Clinched;
         html += `<table class="standings"><thead><tr><th>순위</th><th style="text-align:left">팀</th><th>승</th><th>무</th><th>패</th><th>득실</th><th>승점</th></tr></thead><tbody>`;
         rows.forEach((r) => {
-          html += `<tr class="rank-${r.rank}"><td>${r.rank}</td><td class="name">${r.name}</td><td>${r.win}</td><td>${r.draw}</td><td>${r.loss}</td><td>${r.runsFor}:${r.runsAgainst}</td><td>${r.points}</td></tr>`;
+          const rowClass = rankResolved && r.rank === 1 ? "rank-1" : "";
+          html += `<tr class="${rowClass}"><td>${r.rank}</td><td class="name">${r.name}</td><td>${r.win}</td><td>${r.draw}</td><td>${r.loss}</td><td>${r.runsFor}:${r.runsAgainst}</td><td>${r.points}</td></tr>`;
         });
         html += "</tbody></table></div>";
       });
@@ -318,7 +327,7 @@ function initApp(LEVEL_CONFIG) {
 
   // ---------- 토너먼트 브래킷 (다이어그램) ----------
   const BRACKET_COL_W = 200;
-  const BRACKET_ROW_H = 70;
+  const BRACKET_ROW_H = 130;
   const BRACKET_BOX_W = 172;
 
   function buildBracketLayout() {
