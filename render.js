@@ -119,8 +119,9 @@ function initApp(LEVEL_CONFIG) {
   function resolveSeedLabel(gid) {
     const g = getStandingsAll()[gid];
     if (!g) return { text: gid + "조 1위", sub: "", done: false };
-    if (g.isOverride || (g.complete && !g.tied)) {
-      return { text: g.list[0].name, sub: gid + "조 1위 확정", done: true };
+    if (g.isOverride || (g.complete && !g.tied) || g.rank1Clinched) {
+      const sub = g.isOverride ? "운영본부 확정" : g.rank1Clinched && !g.complete ? "수학적 확정" : "예선 확정";
+      return { text: g.list[0].name, sub, done: true };
     }
     return { text: gid + "조 1위", sub: "예선 진행중", done: false };
   }
@@ -288,18 +289,27 @@ function initApp(LEVEL_CONFIG) {
       .sort((a, b) => Number(a) - Number(b))
       .forEach((gid) => {
         const group = td.groups[gid];
-        const { list: rows, tied, isOverride, complete } = all[gid];
+        const { list: rows, tied, isOverride, complete, rank1Clinched } = all[gid];
+        const isTQBEligible =
+          group.type !== "four" &&
+          ((LEVEL_CONFIG.key === "middle" && state.gender === "m") || (LEVEL_CONFIG.key === "elementary" && state.gender === "f"));
         html += `<div class="group-block"><h3>${gid}조</h3>`;
 
         if (group.type === "four") {
           html += `<div class="group-note">4팀조 · 2경기제 · 동률 시 최소실점→최다득점 순</div>`;
+        } else if (isTQBEligible) {
+          html += `<div class="group-note">승점 → TQB(맞대결 이닝 기준) 순으로 순위를 매깁니다</div>`;
         } else {
           html += `<div class="group-note">승점으로만 순위를 매깁니다</div>`;
         }
         if (isOverride) {
           html += `<div class="group-note confirmed">✓ 운영본부가 확정한 순위입니다</div>`;
+        } else if (rank1Clinched && !complete) {
+          html += `<div class="group-note confirmed">✓ 1위 수학적으로 확정 (나머지 경기 결과와 무관)</div>`;
         } else if (!complete) {
           html += `<div class="group-note">예선 진행중 (경기 결과에 따라 순위가 바뀔 수 있어요)</div>`;
+        } else if (tied && isTQBEligible) {
+          html += `<div class="group-note warn">⚠ 순위산정 대기중 (TQB 계산 필요)</div>`;
         } else if (tied) {
           html += `<div class="group-note warn">⚠ 승점 동률 — 운영본부 확인 후 순위가 확정됩니다</div>`;
         }
@@ -315,7 +325,7 @@ function initApp(LEVEL_CONFIG) {
 
   // ---------- 토너먼트 브래킷 (다이어그램) ----------
   const BRACKET_COL_W = 200;
-  const BRACKET_ROW_H = 70;
+  const BRACKET_ROW_H = 100;
   const BRACKET_BOX_W = 172;
 
   function buildBracketLayout() {

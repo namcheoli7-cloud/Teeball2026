@@ -113,7 +113,26 @@ function calcGroupStandings(group, groupMatches, scoresByMatchId, teams, overrid
 
   list.forEach((t, idx) => (t.rank = idx + 1));
   const isOverride = !!(overrideOrder && overrideOrder.length);
-  return { list, tied: isOverride ? false : tied, isOverride, complete };
+
+  // 1위 "수학적 확정" 감지: 아직 조의 모든 경기가 안 끝났어도,
+  // 남은 경기를 다른 팀들이 전부 이겨도 지금 1위(승점 기준)를 못 따라잡으면
+  // 나머지 경기 결과와 무관하게 1위로 확정 취급한다.
+  // (예: 3팀조에서 2승을 챙긴 팀은 남은 1경기 결과와 상관없이 항상 1위)
+  let rank1Clinched = false;
+  if (!isOverride && list.length > 0) {
+    const leaderPoints = list[0].points;
+    rank1Clinched = list.slice(1).every((t) => {
+      const remaining = groupMatches.filter((m) => {
+        const involved = m.team1 === t.teamId || m.team2 === t.teamId;
+        const sc = scoresByMatchId[m.id];
+        return involved && !(sc && sc.status === "final");
+      }).length;
+      const ceiling = t.points + remaining * 2; // 남은 경기를 전부 이겼을 때의 최대 승점
+      return leaderPoints > ceiling;
+    });
+  }
+
+  return { list, tied: isOverride ? false : tied, isOverride, complete, rank1Clinched };
 }
 
 // 조 전체(레벨/성별) 순위표 일괄 계산
