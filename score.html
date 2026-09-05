@@ -6,7 +6,7 @@
 <title>티볼 도대회 · 심판 도구</title>
 <link rel="icon" href="shared/favicon.ico" />
 <link rel="apple-touch-icon" href="shared/apple-touch-icon.png" />
-<link rel="stylesheet" href="shared/style.css?v=20" />
+<link rel="stylesheet" href="shared/style.css?v=23" />
 <style>
   :root { --accent: #1c211d; }
   .site-header h1 { font-size: 20px; }
@@ -48,12 +48,12 @@
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="shared/firebase-config.js?v=20"></script>
+<script src="shared/firebase-config.js?v=23"></script>
 
-<script src="shared/teams-elementary.js?v=20"></script>
-<script src="shared/teams-middle.js?v=20"></script>
-<script src="shared/schedule.js?v=20"></script>
-<script src="shared/standings.js?v=20"></script>
+<script src="shared/teams-elementary.js?v=23"></script>
+<script src="shared/teams-middle.js?v=23"></script>
+<script src="shared/schedule.js?v=23"></script>
+<script src="shared/standings.js?v=23"></script>
 
 <script>
 const LEVEL_LABEL = { elementary: "초등부", middle: "중등부", skip: "여고부(별도)" };
@@ -123,7 +123,7 @@ function resolveGroupWinnerName(level, gender, gid) {
   const groupMatches = SCHEDULE.filter((m) => m.level === level && m.gender === gender && m.stage === "group" && String(m.groupId) === String(gid));
   const overridesForGender = (rankOverridesByLevel[level] || {})[gender] || {};
   const result = calcGroupStandings(group, groupMatches, scoresByMatchId, td.teams, overridesForGender[gid]);
-  if (result.isOverride || (result.complete && !result.tied)) return result.list[0].name;
+  if (result.isOverride || (result.complete && !result.tied) || result.rank1Clinched) return result.list[0].name;
   return null;
 }
 // 종료된 경기의 승리팀명 반환 (team1Name/team2Name 저장돼 있어야 함)
@@ -417,6 +417,8 @@ function renderRankGroups() {
       let statusHtml;
       if (isOverrideActive) {
         statusHtml = `<div class="status-line confirmed">✓ 운영본부 확정 순위 사용중</div>`;
+      } else if (auto.rank1Clinched && !auto.complete) {
+        statusHtml = `<div class="status-line confirmed">✓ 1위 수학적으로 확정 (나머지 경기와 무관 · 수동 확정 불필요)</div>`;
       } else if (!auto.complete) {
         statusHtml = `<div class="status-line auto">예선 진행중 (아직 확정 아님)</div>`;
       } else if (auto.tied) {
@@ -424,6 +426,12 @@ function renderRankGroups() {
       } else {
         statusHtml = `<div class="status-line auto">자동계산 순위 사용중 (동률 없음)</div>`;
       }
+
+      const isTQBEligible =
+        group.type !== "four" &&
+        ((rankState.level === "middle" && rankState.gender === "m") || (rankState.level === "elementary" && rankState.gender === "f"));
+      const showTQB = isTQBEligible && !isOverrideActive && auto.complete && auto.tied;
+      const tqbHtml = showTQB ? renderTQBBlock(gid, groupMatches, auto.list) : "";
 
       card.innerHTML = `
         <div class="card-head">
@@ -436,10 +444,126 @@ function renderRankGroups() {
           <button class="btn-save" onclick="saveRankOverride('${gid}')">확정 저장</button>
           ${isOverrideActive ? `<button class="btn-reset" onclick="resetRankOverride('${gid}')">자동계산으로 되돌리기</button>` : ""}
         </div>
+        ${tqbHtml}
       `;
       wrap.appendChild(card);
       renderRankRows(gid, byId);
     });
+}
+
+// 승점이 동일한 팀들의 뭉치(cluster)를 찾는다 (3팀조 기준 최대 1개)
+function findTiedCluster(list) {
+  const byPoints = {};
+  list.forEach((t) => {
+    (byPoints[t.points] = byPoints[t.points] || []).push(t);
+  });
+  return Object.values(byPoints).find((arr) => arr.length > 1) || [];
+}
+
+function renderTQBBlock(gid, groupMatches, standingsList) {
+  const cluster = findTiedCluster(standingsList);
+  if (cluster.length < 2) return "";
+  const clusterIds = cluster.map((t) => t.teamId);
+  const h2h = groupMatches.filter((m) => clusterIds.includes(m.team1) && clusterIds.includes(m.team2));
+  if (!h2h.length) return "";
+
+  let rowsHtml = "";
+  h2h.forEach((m) => {
+    const sc = scoresByMatchId[m.id] || {};
+    const n1 = teamName(m.level, m.gender, m.team1);
+    const n2 = teamName(m.level, m.gender, m.team2);
+    rowsHtml += `
+      <div class="tqb-match-row">
+        <div class="tqb-match-label">${n1} ${sc.score1 ?? "-"} : ${sc.score2 ?? "-"} ${n2}</div>
+        <div class="tqb-innings-inputs">
+          <label>${n1} 공격이닝<input type="number" step="0.1" min="0" max="3" value="${sc.tqbInnings1 ?? ""}" onchange="saveTQBInnings('${m.id}','tqbInnings1',this.value)" /></label>
+          <label>${n2} 공격이닝<input type="number" step="0.1" min="0" max="3" value="${sc.tqbInnings2 ?? ""}" onchange="saveTQBInnings('${m.id}','tqbInnings2',this.value)" /></label>
+        </div>
+      </div>`;
+  });
+
+  return `
+    <div class="tqb-tool">
+      <div class="tqb-tool-title">🧮 TQB 계산기 — ${cluster.map((t) => t.name).join(" · ")} 맞대결만 반영</div>
+      <div class="tqb-hint">각 경기에서 그 팀이 공격한 이닝수를 입력하세요 (예: 2이닝 마치고 3회 7번타자까지 쳤으면 2.7)</div>
+      ${rowsHtml}
+      <button class="tqb-calc-btn" onclick="calcTQBAndShow('${gid}')">TQB 계산하기</button>
+      <div id="tqb-result-${gid}"></div>
+    </div>
+  `;
+}
+
+function saveTQBInnings(matchId, field, value) {
+  const num = Number(value);
+  db.ref(`${SCORES_PATH}/${matchId}`).update({ [field]: isNaN(num) ? 0 : num });
+}
+
+function calcTQBAndShow(gid) {
+  const td = rankCurrentTeamsData();
+  const group = td.groups[gid];
+  const genderMatches = SCHEDULE.filter((m) => m.level === rankState.level && m.gender === rankState.gender);
+  const groupMatches = genderMatches.filter((m) => m.stage === "group" && String(m.groupId) === String(gid));
+  const auto = calcGroupStandings(group, groupMatches, scoresByMatchId, td.teams, null);
+  const cluster = findTiedCluster(auto.list);
+  const clusterIds = cluster.map((t) => t.teamId);
+  const h2h = groupMatches.filter((m) => clusterIds.includes(m.team1) && clusterIds.includes(m.team2));
+
+  const stat = {};
+  clusterIds.forEach((id) => (stat[id] = { runsFor: 0, runsAgainst: 0, inningsFor: 0, inningsAgainst: 0 }));
+
+  h2h.forEach((m) => {
+    const sc = scoresByMatchId[m.id];
+    if (!sc) return;
+    const i1 = Number(sc.tqbInnings1) || 0;
+    const i2 = Number(sc.tqbInnings2) || 0;
+    const s1 = Number(sc.score1) || 0;
+    const s2 = Number(sc.score2) || 0;
+    if (stat[m.team1]) {
+      stat[m.team1].runsFor += s1;
+      stat[m.team1].runsAgainst += s2;
+      stat[m.team1].inningsFor += i1;
+      stat[m.team1].inningsAgainst += i2;
+    }
+    if (stat[m.team2]) {
+      stat[m.team2].runsFor += s2;
+      stat[m.team2].runsAgainst += s1;
+      stat[m.team2].inningsFor += i2;
+      stat[m.team2].inningsAgainst += i1;
+    }
+  });
+
+  const results = clusterIds.map((id) => {
+    const s = stat[id];
+    const tqb = (s.inningsFor > 0 ? s.runsFor / s.inningsFor : 0) - (s.inningsAgainst > 0 ? s.runsAgainst / s.inningsAgainst : 0);
+    const teamObj = auto.list.find((t) => t.teamId === id);
+    return { teamId: id, name: teamObj.name, tqb, s };
+  });
+  results.sort((a, b) => b.tqb - a.tqb);
+
+  let html = '<div class="tqb-results">';
+  results.forEach((r, i) => {
+    html += `<div class="tqb-result-row ${i === 0 ? "top" : ""}">
+      <div class="tqb-result-name">${i === 0 ? "▲ " : ""}${r.name}</div>
+      <div class="tqb-result-detail">공격 ${r.s.inningsFor.toFixed(1)}이닝 · 수비 ${r.s.inningsAgainst.toFixed(1)}이닝</div>
+      <div class="tqb-result-value">TQB ${r.tqb >= 0 ? "+" : ""}${r.tqb.toFixed(3)}</div>
+    </div>`;
+  });
+  html += `<button class="tqb-apply-btn" onclick="applyTQBOrder('${gid}', '${results.map((r) => r.teamId).join(",")}')">이 순서로 확정 저장</button>`;
+  html += "</div>";
+  document.getElementById(`tqb-result-${gid}`).innerHTML = html;
+}
+
+function applyTQBOrder(gid, clusterOrderStr) {
+  const clusterOrder = clusterOrderStr.split(",").map(Number);
+  const order = rankLocalOrder[gid];
+  const positions = [];
+  order.forEach((id, idx) => {
+    if (clusterOrder.includes(id)) positions.push(idx);
+  });
+  positions.forEach((pos, i) => {
+    order[pos] = clusterOrder[i];
+  });
+  saveRankOverride(gid);
 }
 
 function renderRankRows(gid, byId) {

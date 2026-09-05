@@ -119,8 +119,9 @@ function initApp(LEVEL_CONFIG) {
   function resolveSeedLabel(gid) {
     const g = getStandingsAll()[gid];
     if (!g) return { text: gid + "조 1위", sub: "", done: false };
-    if (g.isOverride || (g.complete && !g.tied)) {
-      return { text: g.list[0].name, sub: gid + "조 1위 확정", done: true };
+    if (g.isOverride || (g.complete && !g.tied) || g.rank1Clinched) {
+      const sub = g.isOverride ? gid + "조 1위 확정(운영본부)" : g.rank1Clinched && !g.complete ? gid + "조 1위 확정(수학적)" : gid + "조 1위 확정";
+      return { text: g.list[0].name, sub, done: true };
     }
     return { text: gid + "조 1위", sub: "예선 진행중", done: false };
   }
@@ -288,7 +289,7 @@ function initApp(LEVEL_CONFIG) {
       .sort((a, b) => Number(a) - Number(b))
       .forEach((gid) => {
         const group = td.groups[gid];
-        const { list: rows, tied, isOverride, complete } = all[gid];
+        const { list: rows, tied, isOverride, complete, rank1Clinched } = all[gid];
         html += `<div class="group-block"><h3>${gid}조</h3>`;
 
         if (group.type === "four") {
@@ -298,6 +299,8 @@ function initApp(LEVEL_CONFIG) {
         }
         if (isOverride) {
           html += `<div class="group-note confirmed">✓ 운영본부가 확정한 순위입니다</div>`;
+        } else if (rank1Clinched && !complete) {
+          html += `<div class="group-note confirmed">✓ 1위 수학적으로 확정 (나머지 경기 결과와 무관)</div>`;
         } else if (!complete) {
           html += `<div class="group-note">예선 진행중 (경기 결과에 따라 순위가 바뀔 수 있어요)</div>`;
         } else if (tied) {
