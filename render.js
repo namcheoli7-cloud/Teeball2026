@@ -32,7 +32,7 @@ function initApp(LEVEL_CONFIG) {
   document.documentElement.style.setProperty("--accent", LEVEL_CONFIG.accent);
   document.getElementById("levelTitle").textContent = "2026 경기 티볼 도대회 · " + LEVEL_CONFIG.label;
 
-  const state = { gender: "m", view: "schedule", day: null };
+  const state = { gender: LEVEL_CONFIG.defaultGender || "m", view: "schedule", day: null };
   let scoresByMatchId = {};
   let rankOverrides = {}; // rankOverrides[gender][groupId] = [teamId, ...]
 

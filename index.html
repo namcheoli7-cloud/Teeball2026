@@ -6,7 +6,7 @@
 <title>2026 경기 티볼 도대회 · 중등부</title>
 <link rel="icon" href="../shared/favicon.ico" />
 <link rel="apple-touch-icon" href="../shared/apple-touch-icon.png" />
-<link rel="stylesheet" href="../shared/style.css?v=17" />
+<link rel="stylesheet" href="../shared/style.css?v=18" />
 </head>
 <body>
 
@@ -55,18 +55,19 @@
 <!-- Firebase (실시간 스코어 반영용) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-<script src="../shared/firebase-config.js?v=17"></script>
+<script src="../shared/firebase-config.js?v=18"></script>
 
-<script src="../shared/teams-middle.js?v=17"></script>
-<script src="../shared/schedule.js?v=17"></script>
-<script src="../shared/standings.js?v=17"></script>
-<script src="../shared/render.js?v=17"></script>
+<script src="../shared/teams-middle.js?v=18"></script>
+<script src="../shared/schedule.js?v=18"></script>
+<script src="../shared/standings.js?v=18"></script>
+<script src="../shared/render.js?v=18"></script>
 <script>
   initApp({
     key: "middle",
     label: "중등부",
     accent: "#b5502a",
     teamsData: TEAMS_MIDDLE,
+    defaultGender: "f",
   });
 </script>
 </body>
