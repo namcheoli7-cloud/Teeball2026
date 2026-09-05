@@ -32,7 +32,7 @@ function initApp(LEVEL_CONFIG) {
   document.documentElement.style.setProperty("--accent", LEVEL_CONFIG.accent);
   document.getElementById("levelTitle").textContent = "2026 경기 티볼 도대회 · " + LEVEL_CONFIG.label;
 
-  const state = { gender: "m", view: "schedule", day: null };
+  const state = { gender: LEVEL_CONFIG.defaultGender || "m", view: "schedule", day: null };
   let scoresByMatchId = {};
   let rankOverrides = {}; // rankOverrides[gender][groupId] = [teamId, ...]
 
@@ -119,7 +119,7 @@ function initApp(LEVEL_CONFIG) {
   function resolveSeedLabel(gid) {
     const g = getStandingsAll()[gid];
     if (!g) return { text: gid + "조 1위", sub: "", done: false };
-    if (g.isOverride || !g.tied) {
+    if (g.isOverride || (g.complete && !g.tied)) {
       return { text: g.list[0].name, sub: gid + "조 1위 확정", done: true };
     }
     return { text: gid + "조 1위", sub: "예선 진행중", done: false };
@@ -288,7 +288,7 @@ function initApp(LEVEL_CONFIG) {
       .sort((a, b) => Number(a) - Number(b))
       .forEach((gid) => {
         const group = td.groups[gid];
-        const { list: rows, tied, isOverride } = all[gid];
+        const { list: rows, tied, isOverride, complete } = all[gid];
         html += `<div class="group-block"><h3>${gid}조</h3>`;
 
         if (group.type === "four") {
@@ -298,6 +298,8 @@ function initApp(LEVEL_CONFIG) {
         }
         if (isOverride) {
           html += `<div class="group-note confirmed">✓ 운영본부가 확정한 순위입니다</div>`;
+        } else if (!complete) {
+          html += `<div class="group-note">예선 진행중 (경기 결과에 따라 순위가 바뀔 수 있어요)</div>`;
         } else if (tied) {
           html += `<div class="group-note warn">⚠ 승점 동률 — 운영본부 확인 후 순위가 확정됩니다</div>`;
         }
@@ -464,14 +466,30 @@ function initApp(LEVEL_CONFIG) {
   }
 
   // ---------- 구장위치 보기 모달 ----------
+  // 뒤로가기를 눌러도 페이지 전체가 아니라 모달만 닫히도록 히스토리를 활용
   const venueBtn = document.getElementById("venueBtn");
   const venueModal = document.getElementById("venueModal");
   const venueClose = document.getElementById("venueClose");
   if (venueBtn && venueModal) {
-    venueBtn.onclick = () => venueModal.classList.add("open");
-    if (venueClose) venueClose.onclick = () => venueModal.classList.remove("open");
+    function openVenueModal() {
+      venueModal.classList.add("open");
+      history.pushState({ tiballModal: "venue" }, "");
+    }
+    function closeVenueModal() {
+      if (history.state && history.state.tiballModal === "venue") {
+        history.back(); // popstate 리스너가 실제로 닫아줌 (히스토리 일관성 유지)
+      } else {
+        venueModal.classList.remove("open");
+      }
+    }
+    window.addEventListener("popstate", () => {
+      venueModal.classList.remove("open");
+    });
+
+    venueBtn.onclick = openVenueModal;
+    if (venueClose) venueClose.onclick = closeVenueModal;
     venueModal.onclick = (e) => {
-      if (e.target === venueModal) venueModal.classList.remove("open");
+      if (e.target === venueModal) closeVenueModal();
     };
   }
 
