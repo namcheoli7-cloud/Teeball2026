@@ -74,8 +74,15 @@ function calcGroupStandings(group, groupMatches, scoresByMatchId, teams, overrid
   let list = Object.values(stat);
   let tied = false;
 
+  // 예선 완료 여부: 그 조에 배정된 경기가 전부 '경기 종료' 상태여야 완료로 취급
+  // (일부 경기만 끝난 상태에서 우연히 점수가 안 겹쳐 보인다고 미리 확정해버리는 것 방지)
+  const complete = groupMatches.every((m) => {
+    const sc = scoresByMatchId[m.id];
+    return sc && sc.status === "final";
+  });
+
   if (overrideOrder && overrideOrder.length) {
-    // 운영본부 수동 확정 순서를 최우선으로 사용
+    // 운영본부 수동 확정 순서를 최우선으로 사용 (완료 여부와 무관하게 항상 최우선)
     const byId = {};
     list.forEach((t) => (byId[t.teamId] = t));
     const ordered = overrideOrder.map((id) => byId[id]).filter(Boolean);
@@ -105,7 +112,8 @@ function calcGroupStandings(group, groupMatches, scoresByMatchId, teams, overrid
   }
 
   list.forEach((t, idx) => (t.rank = idx + 1));
-  return { list, tied: overrideOrder && overrideOrder.length ? false : tied, isOverride: !!(overrideOrder && overrideOrder.length) };
+  const isOverride = !!(overrideOrder && overrideOrder.length);
+  return { list, tied: isOverride ? false : tied, isOverride, complete };
 }
 
 // 조 전체(레벨/성별) 순위표 일괄 계산

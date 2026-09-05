@@ -119,7 +119,7 @@ function initApp(LEVEL_CONFIG) {
   function resolveSeedLabel(gid) {
     const g = getStandingsAll()[gid];
     if (!g) return { text: gid + "조 1위", sub: "", done: false };
-    if (g.isOverride || !g.tied) {
+    if (g.isOverride || (g.complete && !g.tied)) {
       return { text: g.list[0].name, sub: gid + "조 1위 확정", done: true };
     }
     return { text: gid + "조 1위", sub: "예선 진행중", done: false };
@@ -288,7 +288,7 @@ function initApp(LEVEL_CONFIG) {
       .sort((a, b) => Number(a) - Number(b))
       .forEach((gid) => {
         const group = td.groups[gid];
-        const { list: rows, tied, isOverride } = all[gid];
+        const { list: rows, tied, isOverride, complete } = all[gid];
         html += `<div class="group-block"><h3>${gid}조</h3>`;
 
         if (group.type === "four") {
@@ -298,6 +298,8 @@ function initApp(LEVEL_CONFIG) {
         }
         if (isOverride) {
           html += `<div class="group-note confirmed">✓ 운영본부가 확정한 순위입니다</div>`;
+        } else if (!complete) {
+          html += `<div class="group-note">예선 진행중 (경기 결과에 따라 순위가 바뀔 수 있어요)</div>`;
         } else if (tied) {
           html += `<div class="group-note warn">⚠ 승점 동률 — 운영본부 확인 후 순위가 확정됩니다</div>`;
         }
